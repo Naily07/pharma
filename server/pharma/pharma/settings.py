@@ -95,7 +95,7 @@ WSGI_APPLICATION = 'pharma.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'pharmaDB',
+        'NAME': 'pharma',
         'USER': 'postgres',
         'PASSWORD': '1322',
         'HOST': 'localhost',  # ou l'adresse IP de votre serveur PostgreSQL

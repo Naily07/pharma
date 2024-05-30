@@ -7,3 +7,5 @@ class ModelProduct(admin.ModelAdmin):
 
 admin.site.register(Detail)
 admin.site.register(Product, ModelProduct)
+admin.site.register(Marque)
+admin.site.register(Fournisseur)

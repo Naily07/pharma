@@ -8,7 +8,7 @@ class Transaction(models.Model):
     qte_uniter_transaction = models.IntegerField()
     qte_gros_transaction = models.IntegerField(default=0, null=True)
     type_transaction = models.TextField(max_length=25)
-    date = models.DateTimeField(timezone.now())
+    date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return self.type_transaction
@@ -22,8 +22,18 @@ class AjoutStock(Transaction):
     gestionnaire = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="%(class)s_related")
 
 class Fournisseur(models.Model):
-    nom = models.TextField(max_length=20)
+    nom = models.CharField(max_length=20)
     adress = models.TextField(max_length=25)
+    contact = models.CharField(max_length=20)
+    def __str__(self) -> str:
+        return self.nom
+
+class Marque(models.Model):
+    nom = models.CharField(max_length=15)
+    provenance = models.CharField(max_length=50)
+
+    def __str__(self) -> str:
+        return self.nom
 
 class Detail(models.Model):
     designation = models.CharField(max_length=255)
@@ -31,28 +41,32 @@ class Detail(models.Model):
     classe = models.CharField(max_length=24)
     type_uniter = models.CharField(max_length=25)
     type_gros = models.CharField(max_length=25)
-    marque =  models.CharField(max_length=25)
     qte_max = models.IntegerField(default=0, null=False)
 
     def __str__(self) -> str:
         return f"{self.designation} - {self.famille} - {self.qte_max} "
 
-
+from django.db.models.constraints import UniqueConstraint
 class Product(models.Model):
     prix_gros = models.DecimalField(max_digits=10, decimal_places=0)
     prix_uniter = models.DecimalField(max_digits=10, decimal_places=0)
     qte_uniter = models.IntegerField(default=0, null=True)
     qte_gros = models.IntegerField(default=0, null=True)
     date_peremption = models.DateField()
-    date_ajout = models.DateTimeField(default=timezone.now, null = True) 
-    detail = models.ForeignKey(Detail, on_delete=models.CASCADE, default=None, related_name="%(class)s_related")
+    date_ajout = models.DateTimeField(auto_now_add=True) 
     ajout_stock = models.ForeignKey(AjoutStock, on_delete=models.SET_NULL, null=True, related_name="%(class)s_related")
+    detail = models.ForeignKey(Detail, on_delete=models.CASCADE, default=None, related_name="%(class)s_related")
+    fournisseur = models.ForeignKey(Fournisseur, on_delete=models.CASCADE, related_name="%(class)s_related")
+    marque = models.ForeignKey(Marque, on_delete=models.CASCADE, related_name="%(class)s_related") 
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields = ['fournisseur', 'marque', 'detail'], name="unique_fournisseur_marque_detail"),
+        ]
+        
     def __str__(self) -> str:
         return f"{self.detail.designation} + {self.qte_uniter}"
 
 class VenteStock(Transaction):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="%(class)s_related")
     vendeur = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="%(class)s_related")
-    
-

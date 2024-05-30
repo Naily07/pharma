@@ -23,17 +23,24 @@ class CreateBulkStock(APIView):
         productList = request.data
         try:
             for newProduct in productList:
-                detail = newProduct.pop('detail_data')
+                detail = newProduct.pop('detail')
+                marque = newProduct.pop('marque')
+                fournisseur = newProduct.pop('fournisseur')
                 detailInstance, created = Detail.objects.get_or_create(
                     designation=detail['designation'], 
                     famille=detail['famille'], 
                     classe=detail['classe'], 
                     type_uniter=detail['type_uniter'], 
                     type_gros=detail['type_gros'],
-                    marque=detail['marque'],
                     qte_max = detail['qte_max']
                 )
-                productExist = Product.objects.filter(detail = detailInstance).first()
+
+                marqueInstance, created = Marque.objects.get_or_create(nom = marque)
+                fournisseurInstance, created = Fournisseur.objects.get_or_create(nom = fournisseur)
+                productExist = Product.objects.filter(
+                    detail = detailInstance, marque = marqueInstance, fournisseur = fournisseurInstance
+                    ).first()
+                
                 print("gros", newProduct['qte_gros'])
                 if productExist:
                     productExist.qte_gros += newProduct['qte_gros']
