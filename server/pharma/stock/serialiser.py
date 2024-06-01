@@ -26,7 +26,7 @@ class ProductSerialiser(serializers.ModelSerializer):
     class Meta():
         model = Product
         fields = [
-                'prix_uniter', 'prix_gros', 'qte_uniter', 
+                'pk', 'prix_uniter', 'prix_gros', 'qte_uniter', 
                   'qte_gros', 'date_ajout', 'date_peremption', 
                   'detail_product', 'detail',"marque_product",
                   'fournisseur', 'fournisseur_product', 'marque'
@@ -90,3 +90,54 @@ class DetailSerialiser(serializers.ModelSerializer):
     class Meta():
         model = Detail
         fields = ['designation', 'famille', 'classe', 'type_uniter', 'type_gros', 'marque', 'qte_max']
+
+
+class VenteProductSerializer(serializers.ModelSerializer):
+    qte_uniter_transaction = serializers.IntegerField(min_value = 0)
+    qte_gros_transaction = serializers.IntegerField(min_value = 0)
+    type_transaction = serializers.ChoiceField([
+        ('Vente' , 'Vente'),
+        ('Ajout', 'Ajout')
+    ])
+    date = serializers.DateTimeField(read_only = True)
+    product_id = serializers.IntegerField(min_value = 0)
+    product = serializers.SerializerMethodField(read_only = True)
+    vendeur = serializers.SerializerMethodField(read_only = True)
+    facture = serializers.SerializerMethodField(read_only = True)
+
+    class Meta():
+        model = VenteProduct
+        fields = [
+            'qte_uniter_transaction', 'qte_gros_transaction', 
+            'type_transaction', 'product', 'vendeur', 'date',
+            'product_id', 'facture'
+            ]
+
+    def get_product(self, obj):
+        venteStock = obj
+        produit : Product = venteStock.product
+        print(produit.detail)
+        return produit.detail.designation
+    
+    def get_vendeur(self, obj):
+        vendeur : CustomUser = obj.vendeur
+        return vendeur.username
+    
+    def get_facture(self, obj):
+        f : Facture = obj.facture
+        return f.id 
+    
+class FactureSerialiser(serializers.ModelSerializer):
+    prix_total = serializers.DecimalField(max_digits=10, decimal_places=0)
+    prix_restant = serializers.DecimalField(max_digits=10, decimal_places=0)
+    produits = serializers.SerializerMethodField(read_only = True)
+
+    class Meta:
+        model = Facture
+        fields = ['pk', 'prix_total', 'prix_restant', 'produits']
+
+    def get_produits(self, obj):
+        facture = obj
+        produits = facture.venteproduct_related.all()
+        print(produits)
+        return VenteProductSerializer(produits, many = True).data 
