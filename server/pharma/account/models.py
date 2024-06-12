@@ -17,7 +17,8 @@ class CustomUserManager(UserManager):
         return user
     
     def create_user(self, username, email=None, password=None, **extra_fields):
-        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_active", True)
         extra_fields.setdefault("is_superuser", False)
         return self._create_user(username, email, password, **extra_fields)
     
@@ -30,7 +31,7 @@ class CustomUserManager(UserManager):
 
 from django.utils import timezone 
 class CustomUser(AbstractUser, PermissionsMixin):
-    email = models.EmailField(blank=True, default='', unique=True)
+    email = models.EmailField(null=True, default=None, unique=True)
     is_active = models.BooleanField(default = False)
     is_staff = models.BooleanField(default = False)
     is_superuser = models.BooleanField(default = False)

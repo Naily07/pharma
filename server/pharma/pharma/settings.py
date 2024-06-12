@@ -49,8 +49,12 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.BasicAuthentication", 
         'rest_framework_simplejwt.authentication.JWTAuthentication',               
     ],    
+        # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+        # 'PAGE_SIZE': 2
 }
-
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+)
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -103,6 +107,26 @@ DATABASES = {
     }
 }
 
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    # "TOKEN_OBTAIN_SERIALIZER": "api.serializers.MyTokenObtainPairSerializer",
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ALGORITHM": "HS256",
+    'AUTH_COOKIE': 'access',  # Nom du cookie à envoyer
+    'AUTH_COOKIE_REFRESH': 'refresh',  # Nom du cookie à envoyer
+    'AUTH_COOKIE_HTTP_ONLY': True, # Rendre le cookie accessible uniquement par HTTP
+    'AUTH_COOKIE_SAMESITE': "None",  # Politique SameSite pour le cookie (Lax, Strict ou None)
+    'AUTH_COOKIE_SECURE': True,  # Rendre le cookie sécurisé (nécessite HTTPS)
+    'AUTH_COOKIE_DOMAINE' : None,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    # "SECREY_KEY" : 's4567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

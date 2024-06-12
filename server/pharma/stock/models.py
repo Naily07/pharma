@@ -5,19 +5,27 @@ from account.models import CustomUser
 # Create your models here.
 
 
+class Fournisseur(models.Model):
+    nom = models.CharField(max_length=20, unique=True)
+    adress = models.TextField(max_length=25)
+    contact = models.CharField(max_length=20)
+    
+    def __str__(self) -> str:
+        return str(self.nom)
+    
 class Facture(models.Model):
     prix_total = models.DecimalField(max_digits=10, decimal_places=0)
     prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
+    client = models.CharField(max_length=20, default="", blank=True)
 
     def __str__(self) -> str:
         return str(self.id)
-
+    
 class Transaction(models.Model):
     qte_uniter_transaction = models.IntegerField()
     qte_gros_transaction = models.IntegerField(default=0, null=True)
     type_transaction = models.TextField(max_length=25)
     date = models.DateTimeField(auto_now_add=True)
-    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related")
 
     def __str__(self) -> str:
         return self.type_transaction
@@ -26,15 +34,7 @@ class Transaction(models.Model):
         abstract = True
 
 class AjoutStock(Transaction):
-    gestionnaire = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="%(class)s_related")
-
-class Fournisseur(models.Model):
-    nom = models.CharField(max_length=20)
-    adress = models.TextField(max_length=25)
-    contact = models.CharField(max_length=20)
-    
-    def __str__(self) -> str:
-        return self.nom
+    gestionnaire = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
 
 class Marque(models.Model):
     nom = models.CharField(max_length=15)
@@ -76,5 +76,6 @@ class Product(models.Model):
         return f"{self.detail.designation} + {self.qte_uniter}"
 
 class VenteProduct(Transaction):
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="%(class)s_related")
     vendeur = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
