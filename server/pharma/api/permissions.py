@@ -24,8 +24,8 @@ class IsVendeur(BasePermission):
 
     def has_permission(self, request, view):
         user = request.user
-        if user.groups.filter(name='vendeurs').exists() | user.is_superuser:
-            return True
+        if not (user.groups.filter(name='vendeurs').exists() | user.is_superuser):
+            return False
         else:
             return super().has_permission(request, view)
     

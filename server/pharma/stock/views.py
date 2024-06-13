@@ -23,7 +23,7 @@ class ListProduct(generics.ListAPIView, ProductQsField):
     qs_field = "expired"
 
 
-class CreateProduct(generics.CreateAPIView):
+class CreateProduct(GestionnaireEditorMixin, generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
 
@@ -123,7 +123,7 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
         except Exception as e:
             return Response(f'Error {e}', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class UpdateProduct(generics.RetrieveUpdateAPIView):
+class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
     lookup_field = 'pk'
