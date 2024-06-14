@@ -1,0 +1,34 @@
+
+from rest_framework import serializers
+
+from .models import CustomUser
+
+class CustomUserSerialiser(serializers.ModelSerializer):
+    username = serializers.CharField(max_length = 25)
+    password = serializers.CharField()
+    account_type = serializers.ChoiceField(
+        [
+            ("vendeur", "vendeur"),
+            ("gestionnaire", "gestionnaire")
+        ],
+        allow_blank = True,
+        required=False
+    )
+
+    class Meta():
+        model = CustomUser
+        fields = ['username', 'password', 'account_type']
+    
+    def create(self, validated_data):
+        email = ''
+        user = CustomUser() 
+        if validated_data.get('email'):
+            email = validated_data['email']
+            user.email = email
+        password = validated_data['password']
+        user.account_type = validated_data['account_type']
+        user.username = validated_data['username']
+        user.is_active = True
+        user.set_password(password)
+        user.save()
+        return user

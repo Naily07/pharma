@@ -4,6 +4,23 @@ from django.utils import timezone
 from account.models import CustomUser
 # Create your models here.
 
+
+class Fournisseur(models.Model):
+    nom = models.CharField(max_length=20, unique=True)
+    adress = models.TextField(max_length=25)
+    contact = models.CharField(max_length=20)
+    
+    def __str__(self) -> str:
+        return str(self.nom)
+    
+class Facture(models.Model):
+    prix_total = models.DecimalField(max_digits=10, decimal_places=0)
+    prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
+    client = models.CharField(max_length=20, default="", blank=True)
+
+    def __str__(self) -> str:
+        return str(self.id)
+    
 class Transaction(models.Model):
     qte_uniter_transaction = models.IntegerField()
     qte_gros_transaction = models.IntegerField(default=0, null=True)
@@ -17,16 +34,7 @@ class Transaction(models.Model):
         abstract = True
 
 class AjoutStock(Transaction):
-    complete = models.BooleanField(default=False)
-    reste = models.DecimalField(max_digits=10, decimal_places=0)
-    gestionnaire = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="%(class)s_related")
-
-class Fournisseur(models.Model):
-    nom = models.CharField(max_length=20)
-    adress = models.TextField(max_length=25)
-    contact = models.CharField(max_length=20)
-    def __str__(self) -> str:
-        return self.nom
+    gestionnaire = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
 
 class Marque(models.Model):
     nom = models.CharField(max_length=15)
@@ -44,7 +52,7 @@ class Detail(models.Model):
     qte_max = models.IntegerField(default=0, null=False)
 
     def __str__(self) -> str:
-        return f"{self.designation} - {self.famille} - {self.qte_max} "
+        return f"{self.designation} - {self.famille} "
 
 from django.db.models.constraints import UniqueConstraint
 class Product(models.Model):
@@ -67,6 +75,7 @@ class Product(models.Model):
     def __str__(self) -> str:
         return f"{self.detail.designation} + {self.qte_uniter}"
 
-class VenteStock(Transaction):
+class VenteProduct(Transaction):
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="%(class)s_related")
-    vendeur = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="%(class)s_related")
+    vendeur = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
