@@ -1,10 +1,9 @@
-/* eslint-disable no-unused-vars */
 import { ArrowRightTwoTone, Visibility, VisibilityOff } from "@mui/icons-material";
 import { Container, FormControl, IconButton, InputAdornment, InputLabel, Link, OutlinedInput } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import logo from "../assets/logo.png";
 import { useForm } from "react-hook-form";
 import Button from "../components/btn/MuiButton.jsx";
@@ -16,6 +15,7 @@ const Login = () => {
 	const [isResponse, setResponse] = useState(false);
 	const navigate = useNavigate();
 	const handleClickShowPassword = () => setShowPassword((show) => !show);
+
 	const {
 		register,
 		handleSubmit,
@@ -25,32 +25,38 @@ const Login = () => {
 		mode: "onTouched",
 	});
 
+	useEffect(() => {
+		if (isResponse) {
+			navigate("/dashboard");
+		}
+	}, [isResponse, navigate]);
+
 	async function onSubmit(data) {
 		try {
-			axios
-				.post("/login", {
-					identifiant: data.identifiant,
-					password: data.password,
-				})
-				.then((response) => {
-					if (response.statusText === "OK") {
-						resetField("identifiant");
-						resetField("password");
-						setResponse(true);
-					}
-				})
-				.catch((e) => {
-					if (e.response.status === 401) {
-						toast.warning("error");
-					}
-				});
-		} catch (error) {
-			console.error(error);
+			const response = await axios.post("/login", {
+				identifiant: data.identifiant,
+				password: data.password,
+			});
+
+			if (response.status === 200) {
+				resetField("identifiant");
+				resetField("password");
+				setResponse(true);
+			}
+		} catch (e) {
+			if (e.response && e.response.status === 401) {
+				toast.warning("Informations d'identification invalides");
+			} else {
+				toast.error("Une erreur inattendue s'est produite");
+			}
+			console.error(e);
 		}
 	}
+
 	const handleMouseDownPassword = (event) => {
 		event.preventDefault();
 	};
+
 	return (
 		<>
 			<Container
@@ -61,7 +67,6 @@ const Login = () => {
 				}}
 			>
 				<form onSubmit={handleSubmit(onSubmit)}>
-					{isResponse && navigate("/dashboard")}
 					<Box
 						sx={{
 							display: "flex",
