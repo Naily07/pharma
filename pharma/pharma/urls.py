@@ -25,5 +25,5 @@ urlpatterns = [
     path('api/account/', include('account.urls')),
     path('api/token/', include('api.urls')),
 ]
-if settings.DEBUG:
-    urlpatterns += staticfiles_urlpatterns()
+# if settings.DEBUG:
+#     urlpatterns += staticfiles_urlpatterns()
