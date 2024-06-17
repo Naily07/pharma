@@ -8,4 +8,4 @@ django-environ==0.11.2
 psycopg2-binary
 python-decouple
 dj-database-url>=2.2.0
-gunicorn
+gunicorn==20.0.1
