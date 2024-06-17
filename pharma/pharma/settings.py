@@ -122,13 +122,6 @@ DATABASES = {
 #     }
 # }
 
-# DATABASES = {
-#     'default': config(
-#         'DATABASE_URL',
-#         default='sqlite:///db.sqlite3',
-#         cast=dburl
-#     )
-# }
 
 from datetime import timedelta
 SIMPLE_JWT = {
