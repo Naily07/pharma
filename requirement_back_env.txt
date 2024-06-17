@@ -2,10 +2,10 @@ django
 django-cors-headers
 djangorestframework
 djangorestframework-simplejwt
-pillow
+pillow==10.3.0
 requests
-django-environ
+django-environ==0.11.2
 psycopg2-binary
 python-decouple
-pip install dj-database-url
-gunicorn
+dj-database-url>=2.2.0
+gunicorn==20.0.0
