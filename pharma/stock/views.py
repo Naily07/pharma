@@ -11,6 +11,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 
+from api.permissions import IsGestionnaire
+from rest_framework.permissions import IsAuthenticated
 # Create your views here.
 
 class CreateDetail(generics.ListCreateAPIView): 
@@ -21,21 +23,20 @@ class ListProduct(generics.ListAPIView, ProductQsField):
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
     qs_field = "expired"
+    permission_classes = [IsAuthenticated, ]
 
 
 class CreateProduct(GestionnaireEditorMixin, generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
 
-
-from api.permissions import IsGestionnaire
-from rest_framework.permissions import IsAuthenticated
 class CreateBulkStock(GestionnaireEditorMixin, APIView):
     # permission_classes = [IsAuthenticated, IsGestionnaire]
     def post(self, request):
         productsToCreate = []
         productsToUpdate = []
         productList = request.data
+        user = request.user
         addStockListInstance = []
         prix_uniter = 0
         prix_gros = 0
@@ -88,7 +89,8 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                     addStockInstance = AjoutStock(
                         qte_uniter_transaction = newProduct['qte_uniter'],
                         qte_gros_transaction = new_qte_gros,
-                        type_transaction = "Ajout"
+                        type_transaction = "Ajout",
+                        gestionnaire = user
                     )
                     #Ajouter la prix de chaque transaction au facture
                     # prix_gros += int(addStockInstance.qte_gros_transaction) * int(productExist.prix_gros)
@@ -100,7 +102,8 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                     addStockInstance = AjoutStock(
                         qte_uniter_transaction = newProduct['qte_uniter'],
                         qte_gros_transaction = newProduct['qte_gros'],
-                        type_transaction = "Ajout"
+                        type_transaction = "Ajout",
+                        gestionnaire = user
                     )
                     # prix_uniter += int(newProduct['qte_uniter']) * int(newProduct['prix_uniter'])
                     # prix_gros += int(newProduct['qte_gros']) * int(newProduct['prix_gros'])
@@ -131,14 +134,17 @@ class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         datas = request.data
         print(datas['pk'])
-        qte_uniter = datas['qte_uniter']
-        qte_gros = datas['qte_gros']
-        if qte_uniter & qte_gros:
-            designation = datas["detail_product"]
-            print("Designation", designation)
-            detailInstance = Detail.objects.filter(designation__iexact = designation).first()
+        qte_uniter = int(datas['qte_uniter'])
+        qte_gros = int(datas['qte_gros'])
+        print("Gors", qte_gros)
+        if int(qte_uniter)>0 or int(qte_gros)>0:
+            product = Product.objects.get(pk = datas['pk'])
+            qte_gros += product.qte_gros
+            qte_uniter += product.qte_uniter
+            detailInstance = product.detail
+            print("Designation", detailInstance.designation)
 
-            while qte_uniter >= detailInstance.qte_max: 
+            while int(qte_uniter) > detailInstance.qte_max: 
                         qte_gros += 1
                         qte_uniter -= detailInstance.qte_max
         request.data['qte_uniter'] = qte_uniter
@@ -189,6 +195,9 @@ class SellProduct(VendeurEditorMixin, generics.ListCreateAPIView):
         except Exception as e:
             raise BaseException()
 
+class ListVente(generics.ListAPIView):
+    queryset = VenteProduct.objects.all()
+    serializer_class = VenteProductSerializer
 
 class SellBulkProduct(VendeurEditorMixin, APIView):
     
@@ -196,16 +205,21 @@ class SellBulkProduct(VendeurEditorMixin, APIView):
     def post(self, request):
         datas = request.data
         client = ""
+        user = request.user
+        print("USSS", user)
         prixRestant = 0
-        for item in datas:
+        datasCopy = datas.copy()
+        for item in datasCopy:
             for key, value in item.items():
                 if key == "client":
                     client = value
                     datas.remove(item)
-                    break 
-
+                if key == "prix_restant":
+                    prixRestant = value
+                    datas.remove(item)
+                    
         print("No client data :", datas)
-        print("Client", client)
+        # print("Client", client)
         venteList = datas
         venteInstancList = []
         try:
@@ -217,30 +231,68 @@ class SellBulkProduct(VendeurEditorMixin, APIView):
             prix_gros = 0
             #un boucle pour chaque vente
             for vente in venteList:
+                # print("Vente", vente)
                 product_id = vente['product_id']
                 produit = Product.objects.filter(id=product_id).first()
                 maxUniter = produit.detail.qte_max
-                qte_uniter = vente['qte_uniter_transaction']
-                qte_gros = vente['qte_gros_transaction']
-                if vente['prix_restant']:
-                    prixRestant += int(vente['prix_restant'])
-                if qte_uniter > maxUniter or qte_gros > produit.qte_gros or qte_uniter > produit.qte_uniter :
-                    return Response({"message" : 'la quantité est invalide'}, status=status.HTTP_400_BAD_REQUEST)
-                if qte_uniter > 0 :
-                    produit.qte_uniter -= qte_uniter
-                if qte_gros > 0 :
-                    produit.qte_gros -= qte_gros
+                qteUniterVente = vente['qte_uniter_transaction'] 
+                qteGrosVente = vente['qte_gros_transaction'] 
+                print("UniterVente", qteUniterVente)
+                qteGrosStock = produit.qte_gros
+                qteUniterStock = produit.qte_uniter
+                # if vente['prix_restant']:
+                #     prixRestant += int(vente['prix_restant'])
+
+                if qteGrosStock >= qteGrosVente:
+                    if maxUniter >= qteUniterVente :
+                        if qteUniterStock >= qteUniterVente :
+                            qteUniterStock -= qteUniterVente
+                            qteGrosStock -= qteGrosVente
+
+                        elif qteUniterVente > qteUniterStock or (qteUniterStock == 0 and qteUniterVente > 0) :
+                            #Cas ou qteUniter en stock == 0 ou uniter en vente > stock
+                            qteUniterStock += maxUniter 
+                            qteGrosStock -= 1               #Ouvrir une boite et prendre uniter dans la boite, boite non Vendu mais ouvert
+                            # qteGrosVente += 1  
+                            qteUniterStock -= qteUniterVente
+
+                        else : #uniter vente == 0
+                            qteGrosStock -= qteGrosVente
+
+                    elif qteUniterVente <= qteGrosStock * maxUniter :
+                        # if qteUniterVente <= maxUniterPossible :
+                        while qteUniterVente >= maxUniter:# ouvrir un boite pour chaque boucle
+                            qteUniterVente -= maxUniter 
+                            # qteGrosStock -= 1 #a la fin la quantité unité en vente est inf max s'il est egale on le considère comme une boite
+                            qteGrosVente += 1  
+
+                        if qteUniterStock <= qteUniterVente:#Verfier si en stock peut satisfaire la vente 
+                            qteUniterStock += maxUniter
+                            qteGrosVente += 1  
+
+                        qteUniterStock -= qteUniterVente
+                        qteGrosStock -= qteGrosVente
+                    else:
+                        return Response({"message" : 'la quantité est invalide ou depasse le stock'}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    return Response({"message" : 'la quantité est invalide ou depasse le stock'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                produit.qte_uniter = qteUniterStock
+                produit.qte_gros = qteGrosStock
+
                 venteInstance = VenteProduct(
                     product = produit,
                     # vendeur
-                    qte_uniter_transaction = qte_uniter,
-                    qte_gros_transaction = qte_gros,
+                    qte_uniter_transaction = qteUniterVente,
+                    qte_gros_transaction = qteGrosVente,
                     type_transaction = "Vente",
-                    facture = facture
+                    prix_total = int(qteUniterVente * produit.prix_uniter) + int(qteGrosVente * produit.prix_gros),
+                    facture = facture,
+                    vendeur = user
                 )
                 produit.save()
-                prix_uniter += qte_uniter * produit.prix_uniter
-                prix_gros += qte_gros * produit.prix_gros
+                prix_uniter += qteUniterVente * produit.prix_uniter
+                prix_gros += qteGrosVente * produit.prix_gros
                 
                 venteInstancList.append(venteInstance)
 
@@ -263,4 +315,16 @@ class SellBulkProduct(VendeurEditorMixin, APIView):
 class ListFacture(generics.ListAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
-    pagination_class = StandardResultPageination
+
+class CreateTrosa(generics.CreateAPIView):
+    queryset = Trosa.objects.all()
+    serializer_class = TrosaSerialiser
+
+class ListTrosa(generics.ListAPIView):
+    queryset = Trosa.objects.all()
+    serializer_class = TrosaSerialiser
+
+class DeleteTrosa(generics.RetrieveDestroyAPIView):
+    queryset = Trosa.objects.all()
+    serializer_class = TrosaSerialiser
+ 

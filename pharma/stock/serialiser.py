@@ -6,6 +6,19 @@ from django.db import IntegrityError, Error
 from rest_framework.response import Response
 from rest_framework import status
 from psycopg2.errors import UniqueViolation
+
+class DetailSerialiser(serializers.ModelSerializer):
+    designation = serializers.CharField(max_length=50, min_length=10, trim_whitespace=True, required = True)
+    famille = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
+    classe = serializers.CharField(max_length=50, min_length=10, trim_whitespace=True)
+    type_uniter = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
+    type_gros = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
+    qte_max = serializers.IntegerField()
+
+    class Meta():
+        model = Detail
+        fields = ['designation', 'famille', 'classe', 'type_uniter', 'type_gros', 'qte_max']
+
 class ProductSerialiser(serializers.ModelSerializer):
     prix_uniter = serializers.DecimalField(max_digits=10, decimal_places=0)
     prix_gros = serializers.DecimalField(max_digits=10, decimal_places=0)
@@ -34,7 +47,8 @@ class ProductSerialiser(serializers.ModelSerializer):
 
     def get_detail_product(self, obj):
         detail = obj.detail
-        return f"{detail.designation}"
+        detailObj = Detail.objects.filter(designation__iexact = detail.designation).first()
+        return DetailSerialiser(detailObj).data
     
     def get_marque_product(self, obj):
         marque = obj.marque
@@ -61,12 +75,9 @@ class ProductSerialiser(serializers.ModelSerializer):
             )
             marqueInstance, createdM = Marque.objects.get_or_create(nom = marque)
             fournisseurInstance, createdF = Fournisseur.objects.get_or_create(
-                nom = fournisseur['nom'],
-                adress = fournisseur['adress'],
-                contact = fournisseur['contact']
+                nom = str(fournisseur['nom']).upper()
             )
-
-            print("isCreated", createdF)
+            print("isCreated Fourniseeur", createdF)
             print(instance)
         
             return Product.objects.create(detail = instance, marque = marqueInstance, fournisseur = fournisseurInstance, **validated_data)
@@ -78,19 +89,6 @@ class ProductSerialiser(serializers.ModelSerializer):
         except Exception as e:
             raise serializers.ValidationError({"message": f"Une erreur inattendue s'est produite: {str(e)}"})
 
-class DetailSerialiser(serializers.ModelSerializer):
-    designation = serializers.CharField(max_length=50, min_length=10, trim_whitespace=True, required = True)
-    famille = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
-    classe = serializers.CharField(max_length=50, min_length=10, trim_whitespace=True)
-    type_uniter = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
-    type_gros = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
-    marque =  serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
-    qte_max = serializers.IntegerField()
-
-    class Meta():
-        model = Detail
-        fields = ['designation', 'famille', 'classe', 'type_uniter', 'type_gros', 'marque', 'qte_max']
-
 
 class VenteProductSerializer(serializers.ModelSerializer):
     qte_uniter_transaction = serializers.IntegerField(min_value = 0)
@@ -101,6 +99,7 @@ class VenteProductSerializer(serializers.ModelSerializer):
     ])
     date = serializers.DateTimeField(read_only = True)
     product_id = serializers.IntegerField(min_value = 0, write_only = True)
+    prix_total = serializers.DecimalField(max_digits=10, decimal_places=0)
     product = serializers.SerializerMethodField(read_only = True)
     vendeur = serializers.SerializerMethodField(read_only = True)
     facture = serializers.SerializerMethodField(read_only = True)
@@ -110,7 +109,7 @@ class VenteProductSerializer(serializers.ModelSerializer):
         fields = [
             'qte_uniter_transaction', 'qte_gros_transaction', 
             'type_transaction', 'product', 'vendeur', 'date',
-            'product_id', 'facture'
+            'product_id', 'facture', 'prix_total'
             ]
 
     def get_product(self, obj):
@@ -140,3 +139,20 @@ class FactureSerialiser(serializers.ModelSerializer):
         facture = obj
         vente = facture.venteproduct_related.all()
         return VenteProductSerializer(vente, many = True).data 
+
+class TrosaSerialiser(serializers.ModelSerializer):
+    somme = serializers.DecimalField(max_digits=10, decimal_places=0)
+    fournisseur = serializers.SerializerMethodField(read_only = True)
+    nomFournisseur = serializers.CharField(write_only = True)
+
+    class Meta:
+        model = Trosa
+        fields = ['somme', 'fournisseur', 'nomFournisseur']
+
+    def get_fournisseur(self, obj):
+        fournisseur : Fournisseur = obj.fournisseur
+        return fournisseur.nom
+    
+    def create(self, validated_data):
+        fournisseur = Fournisseur.objects.filter(nom__iexact = validated_data.pop('nomFournisseur')).first()
+        return Trosa.objects.create(fournisseur = fournisseur, **validated_data)

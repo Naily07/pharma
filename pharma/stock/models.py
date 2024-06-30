@@ -13,11 +13,15 @@ class Fournisseur(models.Model):
     
     def __str__(self) -> str:
         return str(self.nom)
-    
+
     def save(self, *args, **kwargs):
         self.nom = self.nom.upper()
         self.contact = self.contact.replace(' ', '')
         super(Fournisseur, self).save(*args, **kwargs)
+
+class Trosa(models.Model):
+    somme = models.DecimalField(max_digits=10, decimal_places=0)
+    fournisseur = models.ForeignKey(Fournisseur, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
     
     
 class Facture(models.Model):
@@ -32,6 +36,7 @@ class Transaction(models.Model):
     qte_uniter_transaction = models.IntegerField()
     qte_gros_transaction = models.IntegerField(default=0, null=True)
     type_transaction = models.TextField(max_length=25)
+    prix_total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
@@ -59,7 +64,7 @@ class Detail(models.Model):
     qte_max = models.IntegerField(default=0, null=False)
 
     def __str__(self) -> str:
-        return f"{self.designation} - {self.famille} "
+        return f"{self.designation}"
 
 from django.db.models.constraints import UniqueConstraint
 class Product(models.Model):

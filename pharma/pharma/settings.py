@@ -103,31 +103,31 @@ WSGI_APPLICATION = 'pharma.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    'default': config(
-        'DATABASE_URL',
-        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
-        cast=dburl
-    )
-}
-
 # DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'pharma',
-#         'USER': 'postgres',
-#         'PASSWORD': '1322',
-#         'HOST': 'localhost',  # ou l'adresse IP de votre serveur PostgreSQL
-#         'PORT': '5432',       # le port par défaut de PostgreSQL
-#     }
+#     'default': config(
+#         'DATABASE_URL',
+#         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+#         cast=dburl
+#     )
 # }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'pharma',
+        'USER': 'postgres',
+        'PASSWORD': '1322',
+        'HOST': 'localhost',  # ou l'adresse IP de votre serveur PostgreSQL
+        'PORT': '5432',       # le port par défaut de PostgreSQL
+    }
+}
 
 
 from datetime import timedelta
 SIMPLE_JWT = {
     # "TOKEN_OBTAIN_SERIALIZER": "api.serializers.MyTokenObtainPairSerializer",
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
-    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
     "ALGORITHM": "HS256",
     'AUTH_COOKIE': 'access',  # Nom du cookie à envoyer
     'AUTH_COOKIE_REFRESH': 'refresh',  # Nom du cookie à envoyer
