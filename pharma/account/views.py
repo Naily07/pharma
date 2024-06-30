@@ -37,6 +37,7 @@ from django.contrib.auth import authenticate
 class Login(APIView):
     permission_classes = []
     def post(self, request):
+        print(request.data)
         try :
             print(request)
             username = request.data.get('username')
