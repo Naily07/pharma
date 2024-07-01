@@ -26,5 +26,5 @@ urlpatterns = [
     path('api/account/', include('account.urls')),
     path('api/token/', include('api.urls')),
 ]
-if not settings.DEBUG:
+if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
