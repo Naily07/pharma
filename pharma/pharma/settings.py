@@ -179,8 +179,8 @@ import os
 
 STATIC_URL = '/static/'
 # Répertoire où collecter les fichiers statiques pour le déploiement
-if not DEBUG:
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# if not DEBUG:
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     # STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage
 
 # Répertoires supplémentaires contenant des fichiers statiques (par exemple, pour les applications Django)
