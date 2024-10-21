@@ -9,6 +9,7 @@ class CustomUserSerialiser(serializers.ModelSerializer):
     account_type = serializers.ChoiceField(
         [
             ("vendeur", "vendeur"),
+            ("proprio", "proprio"),
             ("gestionnaire", "gestionnaire")
         ],
         allow_blank = True,
