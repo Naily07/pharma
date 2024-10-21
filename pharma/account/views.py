@@ -9,10 +9,11 @@ from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
 from api.serializers import MyTokenObtainPairSerializer
 from rest_framework import status
+from api.mixins import PropriosEditorMixin, ProprioQueryset
 # Create your views here.
 
 
-class CreateListAccount(generics.ListCreateAPIView):
+class CreateListAccount(generics.ListCreateAPIView, PropriosEditorMixin, ProprioQueryset):
     queryset = CustomUser.objects.all()
     serializer_class = CustomUserSerialiser
 
