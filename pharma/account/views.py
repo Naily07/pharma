@@ -12,6 +12,7 @@ from api.mixins import PropriosEditorMixin, ProprioQueryset
 # Create your views here.
 
 
+
 class CreateListAccount(generics.ListCreateAPIView, PropriosEditorMixin, ProprioQueryset):
     queryset = CustomUser.objects.all()
     serializer_class = CustomUserSerialiser
