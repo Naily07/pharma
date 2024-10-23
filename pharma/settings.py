@@ -111,14 +111,26 @@ WSGI_APPLICATION = 'pharma.wsgi.application'
 #     )
 # }
 # Echanger les dataBase en production
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'pharma',
+#         'USER': 'postgres',
+#         'PASSWORD': '1322',
+#         'HOST': 'localhost',  # ou l'adresse IP de votre serveur PostgreSQL
+#         'PORT': '5432',       # le port par défaut de PostgreSQL
+#     }
+# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'pharma',
-        'USER': 'postgres',
-        'PASSWORD': '1322',
-        'HOST': 'localhost',  # ou l'adresse IP de votre serveur PostgreSQL
-        'PORT': '5432',       # le port par défaut de PostgreSQL
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'pharmadb',
+        'USER': 'root',
+        'PASSWORD': '',
+        'HOST': '127.0.0.1',  # ou l'adresse IP si le serveur est distant
+        'PORT': 3306,  # port par défaut pour MySQL
+        'OPTIONS': {
+        },
     }
 }
 
