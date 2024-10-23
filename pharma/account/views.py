@@ -1,6 +1,5 @@
 from django.shortcuts import render
 from rest_framework import generics
-
 from .serialisers import CustomUserSerialiser
 from django.contrib.auth.models import Group
 from .models import CustomUser
@@ -9,10 +8,12 @@ from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
 from api.serializers import MyTokenObtainPairSerializer
 from rest_framework import status
+from api.mixins import PropriosEditorMixin, ProprioQueryset
 # Create your views here.
 
 
-class CreateListAccount(generics.ListCreateAPIView):
+
+class CreateListAccount(generics.ListCreateAPIView, PropriosEditorMixin, ProprioQueryset):
     queryset = CustomUser.objects.all()
     serializer_class = CustomUserSerialiser
 
@@ -37,6 +38,7 @@ from django.contrib.auth import authenticate
 class Login(APIView):
     permission_classes = []
     def post(self, request):
+        print(request.data)
         try :
             print(request)
             username = request.data.get('username')
