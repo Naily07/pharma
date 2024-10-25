@@ -1,4 +1,6 @@
 .env
 build.sh
+__pycache__/
+*.pyc
 **/__pycahce__/
 /venv
