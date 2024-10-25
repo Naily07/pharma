@@ -2,5 +2,5 @@
 build.sh
 __pycache__/
 *.pyc
-**/__pycahce__/
+**/__pycache__/
 /venv
