@@ -1,1 +1,4 @@
+.env
+build.sh
+**/__pycahce__/
 /venv
