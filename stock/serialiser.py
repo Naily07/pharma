@@ -29,6 +29,9 @@ class DetailSerialiser(serializers.ModelSerializer):
         model = Detail
         fields = ['designation', 'famille', 'classe', 'type_uniter', 'type_gros', 'qte_max']
 
+    def create(self, validated_data):
+        return super().create(validated_data)
+
 from django.core.validators import MinValueValidator
 class ProductSerialiser(serializers.ModelSerializer):
     prix_uniter = serializers.DecimalField(max_digits=10, decimal_places=0)
@@ -78,7 +81,7 @@ class ProductSerialiser(serializers.ModelSerializer):
             fournisseur = validated_data.pop('fournisseur')
             print(validated_data)
             instance, createdD = Detail.objects.get_or_create(
-                designation=detail_data['designation'], 
+                designation=detail_data['designation'].lower(), 
                 famille=detail_data['famille'], 
                 classe=detail_data['classe'], 
                 type_uniter=detail_data['type_uniter'], 
@@ -113,6 +116,7 @@ class VenteProductSerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField(min_value = 0, write_only = True)
     prix_total = serializers.DecimalField(max_digits=10, decimal_places=0)
     product = serializers.SerializerMethodField(read_only = True)
+    marque = serializers.SerializerMethodField(read_only = True)
     # vendeur = serializers.SerializerMethodField(read_only = True)
     facture = serializers.SerializerMethodField(read_only = True)
 
@@ -121,7 +125,7 @@ class VenteProductSerializer(serializers.ModelSerializer):
         fields = [
             'qte_uniter_transaction', 'qte_gros_transaction', 
             'type_transaction', 'product', 'date',
-            'product_id', 'facture', 'prix_total'
+            'product_id', 'facture', 'prix_total', "marque"
             ]
 
     def get_product(self, obj):
@@ -130,6 +134,10 @@ class VenteProductSerializer(serializers.ModelSerializer):
         # print(produit.detail)
         return produit.detail.designation
     
+    def get_marque(self, obj):
+        venteStock = obj
+        produit : Product = venteStock.product
+        return produit.marque.nom
     # def get_vendeur(self, obj):
     #     vendeur : CustomUser = obj.vendeur
     #     return vendeur.username
