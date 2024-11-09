@@ -332,6 +332,7 @@ class SellBulkProduct(APIView, VendeurEditorMixin):
 class ListVente(generics.ListAPIView):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer
+
 class ListFacture(generics.ListAPIView, userFactureQs):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
@@ -339,7 +340,18 @@ class ListFacture(generics.ListAPIView, userFactureQs):
 class DeleteFacture(generics.DestroyAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
-
+class UpdateFacture(generics.RetrieveUpdateAPIView):
+    queryset = Facture.objects.all()
+    serializer_class = FactureSerialiser
+    lookup_field = 'pk'
+    
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+    
+# /*** TROSA  ****/
 class CreateTrosa(generics.CreateAPIView):
     queryset = Trosa.objects.all()
     serializer_class = TrosaSerialiser
