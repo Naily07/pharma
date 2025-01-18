@@ -138,8 +138,8 @@ DATABASES = {
 from datetime import timedelta
 SIMPLE_JWT = {
     # "TOKEN_OBTAIN_SERIALIZER": "api.serializers.MyTokenObtainPairSerializer",
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=2),
     "ALGORITHM": "HS256",
     'AUTH_COOKIE': 'access',  # Nom du cookie à envoyer
     'AUTH_COOKIE_REFRESH': 'refresh',  # Nom du cookie à envoyer
@@ -147,7 +147,6 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SAMESITE': "None",  # Politique SameSite pour le cookie (Lax, Strict ou None)
     'AUTH_COOKIE_SECURE': True,  # Rendre le cookie sécurisé (nécessite HTTPS)
     'AUTH_COOKIE_DOMAINE' : None,
-
     'AUTH_HEADER_TYPES': ('Bearer',),
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
