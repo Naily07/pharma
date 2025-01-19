@@ -22,7 +22,7 @@ from dj_database_url import parse as dburl
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)w&*j1%@55^f$9d0v#k5p9qe^jsmv@ia5_lq%hb2xu#7v9wytn'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
@@ -123,14 +123,15 @@ WSGI_APPLICATION = 'pharma.wsgi.application'
 # }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'pharmadb',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': '127.0.0.1',  # ou l'adresse IP si le serveur est distant
-        'PORT': 3306,  # port par défaut pour MySQL
-        'OPTIONS': {
-        },
+        'ENGINE': 'django.db.backends.mysql', # ou autre backend (mysql, sqlite, etc.)
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD', default = ''),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='3306'),
+        'OPTIONS':{
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+        }
     }
 }
 
@@ -138,8 +139,8 @@ DATABASES = {
 from datetime import timedelta
 SIMPLE_JWT = {
     # "TOKEN_OBTAIN_SERIALIZER": "api.serializers.MyTokenObtainPairSerializer",
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(hours=2),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=6),
     "ALGORITHM": "HS256",
     'AUTH_COOKIE': 'access',  # Nom du cookie à envoyer
     'AUTH_COOKIE_REFRESH': 'refresh',  # Nom du cookie à envoyer
@@ -200,5 +201,14 @@ STATICFILES_DIRS = [
 ]
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
+
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = config('EMAIL_HOST', 'email_host')
+EMAIL_PORT = 587
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='email_host_user')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

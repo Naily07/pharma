@@ -87,7 +87,11 @@ class ProductSerialiser(serializers.ModelSerializer):
             )
             marqueInstance, createdM = Marque.objects.get_or_create(nom = marque)
             fournisseurInstance, createdF = Fournisseur.objects.get_or_create(
-                nom = str(fournisseur['nom']).upper()
+                nom = str(fournisseur['nom']).upper(),
+                defaults={
+                    'adress': fournisseur['adress'],
+                    'contact': fournisseur['contact']
+                }
             )
             print("isCreated Fourniseeur", createdF)
             print(instance)
