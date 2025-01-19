@@ -12,6 +12,7 @@ urlpatterns = [
 
     path('list-facture', ListFacture.as_view(), name='create-stock'),
     path('delete-facture/<int:pk>', DeleteFacture.as_view(), name='create-stock'),
+    path('update-facture/<int:pk>', UpdateFacture.as_view(), name='update-facture'),
 
     #Vendeur
     path('sell-product', SellBulkProduct.as_view(), name='vente-produit'),

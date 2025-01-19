@@ -168,11 +168,11 @@ class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
 
         return super().patch(request, *args, **kwargs)
     
-class DeleteProduct(GestionnaireEditorMixin, generics.DestroyAPIView, generics.ListAPIView):
+class DeleteProduct(generics.DestroyAPIView, generics.ListAPIView, GestionnaireEditorMixin):
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
 
-class SellProduct(VendeurEditorMixin, generics.ListCreateAPIView):
+class SellProduct(generics.ListCreateAPIView, VendeurEditorMixin):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer
 
@@ -211,7 +211,7 @@ class SellProduct(VendeurEditorMixin, generics.ListCreateAPIView):
         except Exception as e:
             raise BaseException()
 
-class SellBulkProduct(VendeurEditorMixin, APIView):
+class SellBulkProduct(APIView, VendeurEditorMixin):
     
     #Transaction des Ventes en Masses
     def post(self, request):
@@ -332,6 +332,7 @@ class SellBulkProduct(VendeurEditorMixin, APIView):
 class ListVente(generics.ListAPIView):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer
+
 class ListFacture(generics.ListAPIView, userFactureQs):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
@@ -339,7 +340,18 @@ class ListFacture(generics.ListAPIView, userFactureQs):
 class DeleteFacture(generics.DestroyAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
-
+class UpdateFacture(generics.RetrieveUpdateAPIView):
+    queryset = Facture.objects.all()
+    serializer_class = FactureSerialiser
+    lookup_field = 'pk'
+    
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+    
+# /*** TROSA  ****/
 class CreateTrosa(generics.CreateAPIView):
     queryset = Trosa.objects.all()
     serializer_class = TrosaSerialiser

@@ -9,7 +9,7 @@ class GestionnaireEditorMixin():
 class VendeurEditorMixin():
     permission_classes = [IsAuthenticated, IsVendeur]
 
-class PropriosEditorMixin():
+class PropriosEditorMixin:
     permission_classes = [IsAuthenticated, IsProprio]
 
 
@@ -30,7 +30,7 @@ class ProductQsField(GenericAPIView):
                 today = timezone.now().date()
                 three_months_from_now = today + timedelta(days=90)
                 print(three_months_from_now)
-                qs = Product.objects.filter(date_peremption__lte=three_months_from_now, date_peremption__gte=today)
+                qs = Product.objects.filter(date_peremption__lte=three_months_from_now, date_peremption__gte = timezone.now())
                 return qs
             elif etat == "rupture" :
                 print("RUPTEE")
@@ -49,7 +49,7 @@ class userFactureQs(GenericAPIView):
         if userType:
             data = {"owner" : user}
             return qs.filter(**data)
-        return super().get_queryset()
+        return qs
 
 class ProprioQueryset(GenericAPIView):
 

@@ -42,6 +42,7 @@ class IsVendeur(BasePermission):
 
 class IsProprio(BasePermission):
     def has_permission(self, request, view):
+        print("Proppp")
         user = request.user
         if not (user.groups.filter(name='proprios').exists() | user.is_superuser):
             return False
