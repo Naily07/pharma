@@ -1,11 +1,12 @@
 
 from rest_framework import serializers
-
 from .models import CustomUser
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class CustomUserSerialiser(serializers.ModelSerializer):
     username = serializers.CharField(max_length = 25)
     password = serializers.CharField()
+    email = serializers.EmailField()
     account_type = serializers.ChoiceField(
         [
             ("vendeur", "vendeur"),
@@ -18,7 +19,7 @@ class CustomUserSerialiser(serializers.ModelSerializer):
 
     class Meta():
         model = CustomUser
-        fields = ['username', 'password', 'account_type']
+        fields = ['username', 'password',  "email", 'account_type']
     
     def create(self, validated_data):
         email = ''
