@@ -1,3 +1,3 @@
 # pharma
 #Configuration .env avec CORS_ALLOWED_ORIGINS // DEBUG
-//test change compte
+Config wsgi.py à decommenter en ligne
