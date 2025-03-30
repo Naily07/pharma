@@ -3,7 +3,7 @@ from .models import *
 # Register your models here.
 
 class ModelProduct(admin.ModelAdmin):
-    list_display = ['detail', 'qte_uniter', 'qte_gros']
+    list_display = ['pk', 'detail', 'qte_detail', 'qte_gros']
 
 class ModelVente(admin.ModelAdmin):
     list_display = ['pk', 'facture', 'type_transaction']

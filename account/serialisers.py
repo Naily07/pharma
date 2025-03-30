@@ -5,7 +5,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class CustomUserSerialiser(serializers.ModelSerializer):
     username = serializers.CharField(max_length = 25)
-    password = serializers.CharField()
+    password = serializers.CharField(write_only = True)
     email = serializers.EmailField()
     account_type = serializers.ChoiceField(
         [

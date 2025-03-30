@@ -17,7 +17,8 @@ urlpatterns = [
     #Vendeur
     path('sell-product', SellBulkProduct.as_view(), name='vente-produit'),
     path('sell-one-product', SellProduct.as_view(), name='vente-produit'),
-    path('sell-transaction', ListVente.as_view(), name='vente'),
+    path('transactions', ListVente.as_view(), name='vente'),
+    path('cancel-transaction/<int:pk>', CancelVente.as_view(), name='vente'),
     #Trosa
     path('list-trosa/', ListTrosa.as_view(), name='vente-produit'),
     path('create-trosa', CreateTrosa.as_view(), name='vente-produit'),
@@ -25,5 +26,6 @@ urlpatterns = [
     path('update-trosa/<int:pk>', UpdateTrosa.as_view(), name='vente-produit'),
 
     path('list-fournisseur', ListFournisseur.as_view(), name='vente-produit'),
+    path('update-fournisseur', UpdateFournisserur.as_view(), name='update-fournisseur'),
 
 ]

@@ -13,7 +13,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         access_token = token.access_token
         refresh_token = token
         print(access_token)
-
         return access_token, refresh_token
 
 import datetime 

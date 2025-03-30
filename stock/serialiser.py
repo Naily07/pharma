@@ -24,20 +24,23 @@ class DetailSerialiser(serializers.ModelSerializer):
     type_uniter = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
     type_gros = serializers.CharField(max_length=25, min_length=10, trim_whitespace=True)
     qte_max = serializers.IntegerField()
+    qte_max_unit = serializers.IntegerField()
 
     class Meta():
         model = Detail
-        fields = ['designation', 'famille', 'classe', 'type_uniter', 'type_gros', 'qte_max']
+        fields = ['id', 'designation', 'famille', 'classe', 'type_uniter', 'type_gros', 'qte_max', 'qte_max_unit']
 
     def create(self, validated_data):
         return super().create(validated_data)
 
 from django.core.validators import MinValueValidator
 class ProductSerialiser(serializers.ModelSerializer):
-    prix_uniter = serializers.DecimalField(max_digits=10, decimal_places=0)
+    prix_unit = serializers.DecimalField(max_digits=10, decimal_places=0)
     prix_gros = serializers.DecimalField(max_digits=10, decimal_places=0)
-    qte_uniter = serializers.IntegerField(validators = [MinValueValidator(0)])
+    prix_detail = serializers.DecimalField(max_digits=10, decimal_places=0)
+    qte_detail = serializers.IntegerField(validators = [MinValueValidator(0)])
     qte_gros = serializers.IntegerField(validators = [MinValueValidator(0)])
+    qte_unit = serializers.IntegerField(required = False, validators = [MinValueValidator(0)])
     date_peremption = serializers.DateField()
     date_ajout = serializers.DateTimeField(read_only = True) 
     
@@ -53,10 +56,11 @@ class ProductSerialiser(serializers.ModelSerializer):
     class Meta():
         model = Product
         fields = [
-                'pk', 'prix_uniter', 'prix_gros', 'qte_uniter', 
-                  'qte_gros', 'date_ajout', 'date_peremption', 
-                  'detail_product', 'detail',"marque_product",
-                  'fournisseur', 'fournisseur_product', 'marque'
+                'pk', 'prix_unit', 'prix_gros', 'prix_detail', 
+                'qte_detail', 'qte_gros', 'qte_unit', 
+                'detail_product', 'detail',"marque_product",
+                'fournisseur', 'fournisseur_product', 'marque', 
+                'date_peremption', 'date_ajout'
                   ]
 
     
@@ -81,12 +85,13 @@ class ProductSerialiser(serializers.ModelSerializer):
             fournisseur = validated_data.pop('fournisseur')
             print(validated_data)
             instance, createdD = Detail.objects.get_or_create(
-                designation=detail_data['designation'].lower(), 
+                designation=detail_data['designation'], 
                 famille=detail_data['famille'], 
                 classe=detail_data['classe'], 
                 type_uniter=detail_data['type_uniter'], 
                 type_gros=detail_data['type_gros'],
-                qte_max = detail_data['qte_max']
+                qte_max = detail_data['qte_max'],
+                qte_max_unit = detail_data['qte_max_unit']
             )
             marqueInstance, createdM = Marque.objects.get_or_create(nom = marque)
             fournisseurInstance, createdF = Fournisseur.objects.get_or_create(
@@ -110,8 +115,9 @@ class ProductSerialiser(serializers.ModelSerializer):
 
 
 class VenteProductSerializer(serializers.ModelSerializer):
-    qte_uniter_transaction = serializers.IntegerField(min_value = 0)
+    qte_detail_transaction = serializers.IntegerField(min_value = 0)
     qte_gros_transaction = serializers.IntegerField(min_value = 0)
+    qte_unit_transaction = serializers.IntegerField(min_value = 0)
     type_transaction = serializers.ChoiceField([
         ('Vente' , 'Vente'),
         ('Ajout', 'Ajout')
@@ -126,26 +132,20 @@ class VenteProductSerializer(serializers.ModelSerializer):
 
     class Meta():
         model = VenteProduct
-        fields = [
-            'qte_uniter_transaction', 'qte_gros_transaction', 
-            'type_transaction', 'product', 'date',
-            'product_id', 'facture', 'prix_total', "marque"
-            ]
+        fields = "__all__"
+            
 
     def get_product(self, obj):
         venteStock = obj
         produit : Product = venteStock.product
         # print(produit.detail)
-        return produit.detail.designation
+        return ProductSerialiser(produit).data
     
     def get_marque(self, obj):
         venteStock = obj
         produit : Product = venteStock.product
         return produit.marque.nom
-    # def get_vendeur(self, obj):
-    #     vendeur : CustomUser = obj.vendeur
-    #     return vendeur.username
-    
+
     def get_facture(self, obj):
         f : Facture = obj.facture
         return f.id 

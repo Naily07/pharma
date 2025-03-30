@@ -21,7 +21,7 @@ from django.shortcuts import redirect
 class PasswordResetRequestView(APIView):
     def post(self, request, *args, **kwargs):
         datas = request.data
-        print(datas['email'])
+        print("HOST", request.get_host())
         try:
             newpass = datas['new_password']
             email = datas['email']

@@ -14,6 +14,7 @@ from rest_framework.exceptions import ValidationError
 from api.permissions import IsGestionnaire
 from rest_framework.permissions import IsAuthenticated
 from api.mixins import userFactureQs
+from django.db import transaction
 # Create your views here.
 
 class CreateDetail(generics.ListCreateAPIView): 
@@ -39,99 +40,95 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
         productList = request.data
         user = request.user
         addStockListInstance = []
-        prix_uniter = 0
+        prix_detail = 0
         prix_gros = 0
 
         try:
-            for newProduct in productList:
-                if newProduct :
-                    detail = newProduct.pop('detail')
-                    marque = newProduct.pop('marque')
-                    fournisseur = newProduct.pop('fournisseur')
-                    detailInstance, createdD = Detail.objects.get_or_create(
-                        designation=detail['designation'], 
-                        famille=detail['famille'], 
-                        classe=detail['classe'], 
-                        type_uniter=detail['type_uniter'], 
-                        type_gros=detail['type_gros'],
-                        qte_max = detail['qte_max']
-                    )
+            with transaction.atomic():
+                for newProduct in productList:
+                    if newProduct:
+                        detail = newProduct.pop('detail')
+                        marque = newProduct.pop('marque')
+                        fournisseur = newProduct.pop('fournisseur')
+                        detailInstance, createdD = Detail.objects.get_or_create(
+                            designation=detail['designation'], 
+                            famille=detail['famille'], 
+                            classe=detail['classe'], 
+                            type_uniter=detail['type_uniter'], 
+                            type_gros=detail['type_gros'],
+                            qte_max=detail['qte_max'],
+                            qte_max_unit=detail['qte_max_unit']
+                        )
 
-                    # print("four", fournisseur['nom'], "detail", detail['designation'], "marque", marque)
-                    marqueInstance, createdM = Marque.objects.get_or_create(nom = marque)
-                    fournisseurInstance, createdF = Fournisseur.objects.get_or_create(
-                        nom = fournisseur['nom'],
-                        defaults={
-                            'adress': fournisseur['adress'],
-                            'contact': fournisseur['contact']
-                        }
-                    )
-                    print("Is CreatedF", createdF, fournisseur)
-                    print("Is CreatedM", createdM, marqueInstance)
-                    print("Is CreatedD", createdD, detailInstance)
-                    productExist = Product.objects.filter(
-                        detail = detailInstance, marque = marqueInstance, fournisseur = fournisseurInstance
+                        marqueInstance, createdM = Marque.objects.get_or_create(nom=marque)
+                        fournisseurInstance, createdF = Fournisseur.objects.get_or_create(
+                            nom=fournisseur['nom'].upper(),
+                            defaults={
+                                'adress': fournisseur['adress'],
+                                'contact': fournisseur['contact']
+                            }
+                        )
+                        
+                        productExist = Product.objects.filter(
+                            detail=detailInstance, marque=marqueInstance, fournisseur=fournisseurInstance
                         ).first()
-                    
-                    #Update quantiter et prendre la nouvelle qté dans Transaction
-                    if productExist:
-                        print(newProduct['prix_uniter'])
-                        if newProduct['prix_uniter'] and newProduct['prix_uniter']>0:
-                            productExist.prix_uniter = newProduct['prix_uniter'] 
-                        if newProduct['prix_gros'] and newProduct['prix_gros']>0 :
-                            productExist.prix_gros = newProduct['prix_gros'] 
+
                         new_qte_gros = newProduct['qte_gros']
-                        #Test de quantiter maximum d'uniter
-                        if newProduct['qte_uniter'] != 0:
-                            while newProduct['qte_uniter'] > detailInstance.qte_max: 
+                        new_qte_detail = newProduct['qte_detail']
+                        if newProduct['qte_unit'] != 0:
+                                while newProduct['qte_unit'] > detailInstance.qte_max_unit:
+                                    new_qte_detail += 1
+                                    newProduct['qte_unit'] -= detailInstance.qte_max_unit
+                        if newProduct['qte_detail'] != 0:
+                            while newProduct['qte_detail'] > detailInstance.qte_max:
                                 new_qte_gros += 1
-                                newProduct['qte_uniter'] -= detailInstance.qte_max
+                                newProduct['qte_detail'] -= detailInstance.qte_max
+                            newProduct['qte_gros'] = new_qte_gros
 
-                        productExist.qte_uniter += newProduct['qte_uniter']
-                        productExist.qte_gros += new_qte_gros
+                        if productExist:
+                            if newProduct['prix_detail'] and newProduct['prix_detail'] > 0:
+                                productExist.prix_detail = newProduct['prix_detail'] 
+                            if newProduct['prix_gros'] and newProduct['prix_gros'] > 0:
+                                productExist.prix_gros = newProduct['prix_gros']
+                            if newProduct['prix_unit'] and newProduct['prix_unit'] > 0:
+                                productExist.prix_unit = newProduct['prix_unit'] 
 
-                        while productExist.qte_uniter >= detailInstance.qte_max:
-                            productExist.qte_uniter -= detailInstance.qte_max
-                            productExist.qte_gros += 1
+                            productExist.qte_unit += newProduct['qte_unit']
+                            productExist.qte_gros += new_qte_gros
+                            productExist.qte_detail += new_qte_detail
 
-                        productsToUpdate.append(productExist)
-                        #Instance pour la transaction
-                        addStockInstance = AjoutStock(
-                            qte_uniter_transaction = newProduct['qte_uniter'],
-                            qte_gros_transaction = new_qte_gros,
-                            type_transaction = "Ajout",
-                            gestionnaire = user
-                        )
-                        #Ajouter la prix de chaque transaction au facture
-                        # prix_gros += int(addStockInstance.qte_gros_transaction) * int(productExist.prix_gros)
-                        # prix_uniter += int(addStockInstance.qte_uniter_transaction) * int(productExist.prix_uniter)
+                            while productExist.qte_unit >= detailInstance.qte_max:
+                                productExist.qte_unit -= detailInstance.qte_max
+                                productExist.qte_gros += 1
 
-                    else:
-                        productsToCreate.append(Product(**newProduct, detail = detailInstance, fournisseur = fournisseurInstance, marque = marqueInstance)) 
-                        #Instance pour chaque transaction
-                        addStockInstance = AjoutStock(
-                            qte_uniter_transaction = newProduct['qte_uniter'],
-                            qte_gros_transaction = newProduct['qte_gros'],
-                            type_transaction = "Ajout",
-                            gestionnaire = user
-                        )
-                        # prix_uniter += int(newProduct['qte_uniter']) * int(newProduct['prix_uniter'])
-                        # prix_gros += int(newProduct['qte_gros']) * int(newProduct['prix_gros'])
-                    
-                    addStockListInstance.append(addStockInstance)
-                    
-                    print(f"this {detail} is created {createdD}")
-                    print(productsToCreate)
-                
-            
-            if len(productsToUpdate)>0:
-                Product.objects.bulk_update(productsToUpdate, fields=['prix_uniter', 'prix_gros', 'qte_uniter', 'qte_gros'])
-            if len(productsToCreate)>0:
-                Product.objects.bulk_create(productsToCreate)
+                            productsToUpdate.append(productExist)
 
-            AjoutStock.objects.bulk_create(addStockListInstance)
+                            addStockInstance = AjoutStock(
+                                qte_uniter_transaction=newProduct['qte_unit'],
+                                qte_gros_transaction=new_qte_gros,
+                                type_transaction="Ajout",
+                                gestionnaire=user
+                            )
+                        else:
+                            productsToCreate.append(Product(**newProduct, detail=detailInstance, fournisseur=fournisseurInstance, marque=marqueInstance)) 
 
-            return Response(f"Success", status=status.HTTP_201_CREATED)
+                            addStockInstance = AjoutStock(
+                                qte_unit_transaction=newProduct['qte_unit'],
+                                qte_gros_transaction=newProduct['qte_gros'],
+                                type_transaction="Ajout",
+                                gestionnaire=user
+                            )
+                        
+                        addStockListInstance.append(addStockInstance)
+
+                if len(productsToUpdate) > 0:
+                    Product.objects.bulk_update(productsToUpdate, fields=['prix_detail', 'prix_gros', 'prix_unit', 'qte_unit', 'qte_gros'])
+                if len(productsToCreate) > 0:
+                    Product.objects.bulk_create(productsToCreate)
+
+                AjoutStock.objects.bulk_create(addStockListInstance)
+
+                return Response("Success", status=status.HTTP_201_CREATED)
         
         except Exception as e:
             return Response(f'Error {e}', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -144,26 +141,26 @@ class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         datas = request.data
         print(datas['pk'])
-        qte_uniter = int(datas['qte_uniter'])
+        qte_detail = int(datas['qte_detail'])
         qte_gros = int(datas['qte_gros'])
         print("Gors", qte_gros)
         product = Product.objects.get(pk = datas['pk'])
-        if int(qte_uniter)<0 or int(qte_gros)<0:
+        if int(qte_detail)<0 or int(qte_gros)<0:
             return Response({"message" : "Les valeurs ne peuvent pas être negatif"}, status=status.HTTP_400_BAD_REQUEST)
-        if int(qte_uniter)>0 or int(qte_gros)>0:
+        if int(qte_detail)>0 or int(qte_gros)>0:
             qte_gros += product.qte_gros
-            qte_uniter += product.qte_uniter
+            qte_detail += product.qte_detail
             detailInstance = product.detail
             print("Designation", detailInstance.designation)
 
-            while int(qte_uniter) > detailInstance.qte_max: 
+            while int(qte_detail) > detailInstance.qte_max: 
                         qte_gros += 1
-                        qte_uniter -= detailInstance.qte_max
-            request.data['qte_uniter'] = qte_uniter
+                        qte_detail -= detailInstance.qte_max
+            request.data['qte_detail'] = qte_detail
             request.data['qte_gros'] = qte_gros
         else :
             request.data.pop("qte_gros")
-            request.data.pop("qte_uniter")
+            request.data.pop("qte_detail")
             print(request.data)
 
         return super().patch(request, *args, **kwargs)
@@ -172,7 +169,7 @@ class DeleteProduct(generics.DestroyAPIView, generics.ListAPIView, GestionnaireE
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
 
-class SellProduct(generics.ListCreateAPIView, VendeurEditorMixin):
+class SellProduct(VendeurEditorMixin, generics.ListCreateAPIView):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer
 
@@ -184,12 +181,18 @@ class SellProduct(generics.ListCreateAPIView, VendeurEditorMixin):
             user = self.request.user
             prix_uniter = 0
             prix_gros = 0
+            prix_detail = 0
             produit = Product.objects.filter(id=serializer.validated_data.get('product_id')).first()
             maxUniter = produit.detail.qte_max
+            qte_max_detail = produit.detail.qte_max_detail
             qte_uniter = serializer.validated_data.get('qte_uniter_transaction')
             qte_gros = serializer.validated_data.get('qte_gros_transaction')
-            if qte_uniter > maxUniter or qte_gros > produit.qte_gros or qte_uniter > produit.qte_uniter :
+            qte_detail = serializer.validated_data.get('qte_detail_transaction')
+            if qte_uniter > maxUniter or qte_gros > produit.qte_gros or qte_uniter > produit.qte_uniter or qte_detail > qte_max_detail :
                 raise ValidationError(detail={"message" : 'la quantité est invalide'})
+            if qte_detail > 0:
+                # Mbola ts mety alo ty tsis condition QTEMAX
+                produit.qte_detail -= qte_detail
             if qte_uniter > 0 :
                 produit.qte_uniter -= qte_uniter
                 prix_uniter = qte_uniter * produit.prix_uniter
@@ -198,7 +201,7 @@ class SellProduct(generics.ListCreateAPIView, VendeurEditorMixin):
                 prix_gros = qte_gros * produit.qte_gros
             produit.save()
             facture = Facture.objects.create(
-                prix_total = prix_gros + prix_uniter,
+                prix_total = prix_gros + prix_uniter + prix_detail,
                 prix_restant = 0,
                 owner = user
             )
@@ -211,16 +214,17 @@ class SellProduct(generics.ListCreateAPIView, VendeurEditorMixin):
         except Exception as e:
             raise BaseException()
 
-class SellBulkProduct(APIView, VendeurEditorMixin):
+class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
+    queryset = VenteProduct.objects.all()
+    serializer_class = VenteProductSerializer
     
-    #Transaction des Ventes en Masses
     def post(self, request):
         datas = request.data
         client = ""
         user = request.user
-        print("USSS", user)
         prixRestant = 0
         datasCopy = datas.copy()
+        
         for item in datasCopy:
             for key, value in item.items():
                 if key == "client":
@@ -230,109 +234,189 @@ class SellBulkProduct(APIView, VendeurEditorMixin):
                     prixRestant = value
                     datas.remove(item)
                     
-        print("No client data :", datas)
-        # print("Client", client)
         venteList = datas
         venteInstancList = []
+        
         try:
-            facture = Facture(
-                prix_total = 0,
-                prix_restant = 0,
-                owner = user
-            )
-            prix_uniter = 0
-            prix_gros = 0
-            #un boucle pour chaque vente
-            for vente in venteList:
-                # print("Vente", vente)
-                product_id = vente['product_id']
-                produit = Product.objects.filter(id=product_id).first()
-                maxUniter = produit.detail.qte_max
-                qteUniterVente = vente['qte_uniter_transaction'] 
-                qteGrosVente = vente['qte_gros_transaction'] 
-                print("UniterVente", qteUniterVente)
-                qteGrosStock = produit.qte_gros
-                qteUniterStock = produit.qte_uniter
-                # if vente['prix_restant']:
-                #     prixRestant += int(vente['prix_restant'])
-                if qteGrosVente<0 or qteUniterVente<0:
-                    return Response({"message" : "Erreur de quantité de vente"}, status=status.HTTP_400_BAD_REQUEST)
-                if qteGrosStock >= qteGrosVente:
-                    if maxUniter >= qteUniterVente :
-                        if qteUniterStock >= qteUniterVente :
-                            qteUniterStock -= qteUniterVente
-                            qteGrosStock -= qteGrosVente
+            with transaction.atomic():
+                facture = Facture(
+                    prix_total=0,
+                    prix_restant=0,
+                    owner=user
+                )
+                prix_unit = 0
+                prix_gros = 0
+                prix_detail = 0
+                
+                for vente in venteList:
+                    print("Vente", vente)
+                    product_id = vente['product_id']
+                    try:
+                        produit = Product.objects.get(id=product_id)
+                    except Product.DoesNotExist:
+                        return Response({"message": "Produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
+                    
+                    maxUnit = produit.detail.qte_max_unit
+                    maxDetail = produit.detail.qte_max
+                    
+                    qteUnitVente = vente['qte_unit_transaction']
+                    qteGrosVente = vente['qte_gros_transaction']
+                    qteDetailVente = vente['qte_detail_transaction']
+                    
+                    if qteGrosVente < 0 or qteUnitVente < 0 or qteDetailVente < 0:
+                        return Response({"message": "Erreur de quantité de vente"}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    qteGrosStock = produit.qte_gros
+                    qteUnitStock = produit.qte_unit
+                    qteDetailStock = produit.qte_detail
+                    restDetail = 0
+                    restUnit = 0
+                    dividandDetail = 0
+                    dividandUnit = 0
+                    #CONVERSION
+                    if qteUnitVente > 0 and maxUnit == 0 or qteDetailVente > 0 and maxDetail == 0:
+                       return Response({"message": "qte unit ou qte detail indisponible"}, status=status.HTTP_400_BAD_REQUEST)  
+                    if qteUnitVente >= maxUnit and qteUnitStock != 0:
+                        dividandUnit = int(qteUnitVente) // int(maxUnit)
+                        restUnit = int(qteUnitVente) % int(maxUnit)
+                        qteUnitVente = restUnit
+                        qteDetailVente += dividandUnit
+                    
+                    if qteDetailVente >= maxDetail and qteDetailVente != 0:
+                        dividandDetail = int(qteDetailVente) // int(maxDetail)
+                        restDetail = int(qteDetailVente) % int(maxDetail)
+                        qteDetailVente = restDetail
+                        qteGrosVente = dividandDetail
+                    
+                    #Condition
+                    if qteGrosStock >= qteGrosVente:
+                        if qteUnitStock < qteUnitVente and maxUnit != 0:
+                            if qteDetailStock > 0:
+                                qteUnitStock += maxUnit
+                                qteDetailStock -= 1
+                            elif qteGrosStock > 0:
+                                qteGrosStock -= 1
+                                qteDetailStock -= 1
+                                qteUnitStock += maxUnit
+                            else:
+                                return Response({"message": "Stock Detail insuffisant"}, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        if qteUnitStock > 0:
+                            print("DETAIL VENTE", qteDetailVente, qteDetailStock, maxDetail)
+                            qteUnitStock -= qteUnitVente
 
-                        elif qteUniterVente > qteUniterStock or (qteUniterStock == 0 and qteUniterVente > 0) :
-                            #Cas ou qteUniter en stock == 0 ou uniter en vente > stock
-                            qteUniterStock += maxUniter 
-                            qteGrosStock -= 1               #Ouvrir une boite et prendre uniter dans la boite, boite non Vendu mais ouvert
-                            # qteGrosVente += 1  
-                            qteUniterStock -= qteUniterVente
-
-                        else : #uniter vente == 0
-                            qteGrosStock -= qteGrosVente
-
-                    elif qteUniterVente <= qteGrosStock * maxUniter :
-                        # if qteUniterVente <= maxUniterPossible :
-                        while qteUniterVente >= maxUniter:# ouvrir un boite pour chaque boucle
-                            qteUniterVente -= maxUniter 
-                            # qteGrosStock -= 1 #a la fin la quantité unité en vente est inf max s'il est egale on le considère comme une boite
-                            qteGrosVente += 1  
-
-                        if qteUniterStock <= qteUniterVente:#Verfier si en stock peut satisfaire la vente 
-                            qteUniterStock += maxUniter
-                            qteGrosVente += 1  
-
-                        qteUniterStock -= qteUniterVente
+                        ## CALCUL Detail
+                        if qteDetailStock >= qteDetailVente and maxDetail != 0:
+                            qteDetailStock -= qteDetailVente
+                        elif qteDetailVente > qteDetailStock or (qteDetailStock == 0 and qteDetailVente > 0):
+                            if qteGrosStock > 0:
+                                qteDetailStock += maxDetail
+                                qteGrosStock -= 1
+                                qteDetailStock -= qteDetailVente
+                            else:
+                                return Response({"message": "Stock insuffisant"}, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        if qteGrosStock < qteGrosVente:
+                            return Response({"message": "Stock insuffisant"}, status=status.HTTP_400_BAD_REQUEST)
+                        
                         qteGrosStock -= qteGrosVente
                     else:
-                        return Response({"message" : 'la quantité est invalide ou depasse le stock'}, status=status.HTTP_400_BAD_REQUEST)
+                        return Response({"message": 'La quantité est invalide ou dépasse le stock'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    produit.qte_unit = qteUnitStock
+                    produit.qte_gros = qteGrosStock
+                    produit.qte_detail = qteDetailStock
+                    
+                    venteInstance = VenteProduct(
+                        product=produit,
+                        qte_unit_transaction=qteUnitVente,
+                        qte_gros_transaction=qteGrosVente,
+                        qte_detail_transaction=qteDetailVente,
+                        type_transaction="Vente",
+                        prix_total=(int(qteUnitVente * produit.prix_unit)
+                                     + int(qteDetailVente * produit.prix_detail)
+                                       + int(qteGrosVente * produit.prix_gros)),
+                        facture=facture,
+                    )
+                    
+                    produit.save()
+                    prix_unit += qteUnitVente * produit.prix_unit
+                    prix_gros += qteGrosVente * produit.prix_gros
+                    prix_detail += qteDetailVente * produit.prix_detail
+                    
+                    venteInstancList.append(venteInstance)
+                
+                facture.prix_restant = prixRestant
+                facture.prix_total = prix_unit + prix_gros + prix_detail
+                facture.client = client
+                facture.save()
+                
+                if len(venteInstancList) > 0:
+                    VenteProduct.objects.bulk_create(venteInstancList)
+                    factureData = Facture.objects.filter(pk=facture.pk).first()
+                    factureDatas = FactureSerialiser(factureData).data
+                    return Response(factureDatas, status=status.HTTP_201_CREATED)
                 else:
-                    return Response({"message" : 'la quantité est invalide ou depasse le stock'}, status=status.HTTP_400_BAD_REQUEST)
-                
-                produit.qte_uniter = qteUniterStock
-                produit.qte_gros = qteGrosStock
-
-                venteInstance = VenteProduct(
-                    product = produit,
-                    # vendeur
-                    qte_uniter_transaction = qteUniterVente,
-                    qte_gros_transaction = qteGrosVente,
-                    type_transaction = "Vente",
-                    prix_total = int(qteUniterVente * produit.prix_uniter) + int(qteGrosVente * produit.prix_gros),
-                    facture = facture,
-                    # vendeur = user
-                )
-                produit.save()
-                prix_uniter += qteUniterVente * produit.prix_uniter
-                prix_gros += qteGrosVente * produit.prix_gros
-                
-                venteInstancList.append(venteInstance)
-
-            facture.prix_restant = 0
-            facture.prix_total = prix_uniter + prix_gros
-            facture.client = client
-            facture.prix_restant = prixRestant
-            facture.save()
-
-            if len(venteInstancList)>0:   
-                VenteProduct.objects.bulk_create(venteInstancList)
-                factureData = Facture.objects.filter(pk = facture.pk).first()
-                factureDatas = FactureSerialiser(factureData).data
-                return Response(factureDatas, status=status.HTTP_201_CREATED)
-            else :
-                return Response({'message' : "Error de creation"}, status=status.HTTP_400_BAD_REQUEST)
-        except AttributeError as e:
-            return Response({"message" : "le produit n'existe pas"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'message': "Erreur de création"}, status=status.HTTP_400_BAD_REQUEST)
+        except AttributeError:
+            return Response({"message": "Le produit n'existe pas"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            raise e
+            return Response({"message": f"Erreur: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ListVente(generics.ListAPIView):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer
 
+
+##Mbola ts vita
+class CancelVente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
+    queryset = VenteProduct.objects.all()
+    serializer_class = VenteProductSerializer
+    lookup_field = 'pk'
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        print("Object to delete", instance)
+        with transaction.atomic():
+            try:
+                data = request.data
+                print("Our Data", data)
+                id_product = data['product_id']
+                product = Product.objects.get(id = id_product)
+                qte_gros_cancel = data['qte_gros_transaction']
+                qte_unit_cancel = data['qte_unit_transaction']
+                qte_detail_cancel = data['qte_detail_transaction']
+                max_detail = product.detail.qte_max
+                max_unit = product.detail.qte_max_unit
+                
+                restUnit = 0
+                dividandDetail = 0
+                dividandUnit = 0
+                new_qte_unit = product.qte_unit + qte_unit_cancel
+                if new_qte_unit > max_unit:
+                    dividandUnit = int(new_qte_unit) // int(max_unit)
+                    restUnit = int(qteUnitVente) % int(maxUnit)
+                    new_qte_unit = restUnit
+                    qte_detail_cancel += dividandUnit
+
+                new_qte_detail = product.qte_detail + qte_detail_cancel
+                if new_qte_detail > max_detail and new_qte_detail != 0:
+                        dividandDetail = int(new_qte_detail) // int(max_detail)
+                        restDetail = int(new_qte_detail) % int(max_detail)
+                        new_qte_detail = restDetail
+                        qte_gros_cancel += dividandDetail
+                product.qte_unit = new_qte_unit
+                product.qte_detail = new_qte_detail
+                product.qte_gros += qte_gros_cancel
+                product.save()
+                self.perform_destroy(instance)
+                return Response(status=status.HTTP_200_OK, data=ProductSerialiser(product).data)
+            except Product.DoesNotExist:
+                return Response({"message": "Produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                return Response({"message": f"Erreur Serveur {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 class ListFacture(generics.ListAPIView, userFactureQs):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
@@ -340,6 +424,7 @@ class ListFacture(generics.ListAPIView, userFactureQs):
 class DeleteFacture(generics.DestroyAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
+
 class UpdateFacture(generics.RetrieveUpdateAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
@@ -369,5 +454,9 @@ class UpdateTrosa(generics.RetrieveUpdateAPIView):
     serializer_class = TrosaSerialiser
  
 class ListFournisseur(generics.ListAPIView):
+    queryset = Fournisseur.objects.all()
+    serializer_class = FournisseurSerialiser
+
+class UpdateFournisserur(generics.UpdateAPIView):
     queryset = Fournisseur.objects.all()
     serializer_class = FournisseurSerialiser

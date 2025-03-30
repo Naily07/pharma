@@ -46,8 +46,9 @@ class Facture(models.Model):
         return formated
      
 class Transaction(models.Model):
-    qte_uniter_transaction = models.IntegerField()
+    qte_detail_transaction = models.IntegerField(default=0, null=True)
     qte_gros_transaction = models.IntegerField(default=0, null=True)
+    qte_unit_transaction = models.IntegerField(default=0, null = True)
     type_transaction = models.TextField(max_length=25)
     prix_total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     date = models.DateTimeField(auto_now_add=True)
@@ -76,6 +77,7 @@ class Detail(models.Model):
     type_uniter = models.CharField(max_length=25)
     type_gros = models.CharField(max_length=25)
     qte_max = models.IntegerField(default=0, null=False)
+    qte_max_unit = models.IntegerField(default=0, null=False)
 
     def __str__(self) -> str:
         return f"{self.designation}"
@@ -83,9 +85,11 @@ class Detail(models.Model):
 from django.db.models.constraints import UniqueConstraint
 class Product(models.Model):
     prix_gros = models.DecimalField(max_digits=10, decimal_places=0)
-    prix_uniter = models.DecimalField(max_digits=10, decimal_places=0)
-    qte_uniter = models.IntegerField(default=0, null=True)
+    prix_detail = models.DecimalField(default = 0, max_digits=10, decimal_places=0, null=True)
+    prix_unit = models.DecimalField(default = 0, max_digits=10, decimal_places=0, null=True)
+    qte_detail = models.IntegerField(default=0, null=True)
     qte_gros = models.IntegerField(default=0, null=True)
+    qte_unit = models.IntegerField(default=0, null=True, blank=True)
     date_peremption = models.DateField()
     date_ajout = models.DateTimeField(auto_now_add=True) 
     ajout_stock = models.ForeignKey(AjoutStock, on_delete=models.SET_NULL, null=True, related_name="%(class)s_related")
@@ -99,7 +103,7 @@ class Product(models.Model):
         ]
         
     def __str__(self) -> str:
-        return f"{self.detail.designation} + {self.qte_uniter}"
+        return f"{self.detail.designation} + {self.qte_detail}"
 
 class VenteProduct(Transaction):
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related")
