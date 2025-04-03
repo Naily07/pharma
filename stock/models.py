@@ -59,10 +59,6 @@ class Transaction(models.Model):
     class Meta():
         abstract = True
 
-class AjoutStock(Transaction):
-    # Vue que ray iany gestionnares ts mila nasina ForegnKey AjoutStock
-    gestionnaire = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
-
 class Marque(models.Model):
     nom = models.CharField(max_length=50)
     provenance = models.CharField(max_length=50)
@@ -92,7 +88,7 @@ class Product(models.Model):
     qte_unit = models.IntegerField(default=0, null=True, blank=True)
     date_peremption = models.DateField()
     date_ajout = models.DateTimeField(auto_now_add=True) 
-    ajout_stock = models.ForeignKey(AjoutStock, on_delete=models.SET_NULL, null=True, related_name="%(class)s_related")
+    # ajout_stock = models.ForeignKey(AjoutStock, on_delete=models.SET_NULL, null=True, related_name="%(class)s_related")
     detail = models.ForeignKey(Detail, on_delete=models.CASCADE, default=None, related_name="%(class)s_related")
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.CASCADE, related_name="%(class)s_related")
     marque = models.ForeignKey(Marque, on_delete=models.CASCADE, related_name="%(class)s_related") 
@@ -104,6 +100,12 @@ class Product(models.Model):
         
     def __str__(self) -> str:
         return f"{self.detail.designation} + {self.qte_detail}"
+
+class AjoutStock(Transaction):
+    # Vue que ray iany gestionnares ts mila nasina ForegnKey AjoutStock
+    product = models.ForeignKey(Product, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
+    gestionnaire = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
+
 
 class VenteProduct(Transaction):
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related")

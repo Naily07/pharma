@@ -114,13 +114,25 @@ class ProductSerialiser(serializers.ModelSerializer):
             raise serializers.ValidationError({"message": f"Une erreur inattendue s'est produite: {str(e)}"})
 
 
+
+class AjoutStockSerialiser(serializers.ModelSerializer):
+    qte_gros_transaction = serializers.IntegerField()
+    type_transaction = serializers.CharField(max_length=25)
+    prix_total = serializers.DecimalField(max_digits=10, decimal_places=0)
+    date = serializers.DateTimeField(read_only = True)
+
+    class Meta():
+        model = AjoutStock
+        fields = '__all__'  
+        
 class VenteProductSerializer(serializers.ModelSerializer):
     qte_detail_transaction = serializers.IntegerField(min_value = 0)
     qte_gros_transaction = serializers.IntegerField(min_value = 0)
     qte_unit_transaction = serializers.IntegerField(min_value = 0)
     type_transaction = serializers.ChoiceField([
         ('Vente' , 'Vente'),
-        ('Ajout', 'Ajout')
+        ('Ajout', 'Ajout'),
+        ('Maj', 'Maj')
     ])
     date = serializers.DateTimeField(read_only = True)
     product_id = serializers.IntegerField(min_value = 0, write_only = True)

@@ -86,11 +86,11 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                             newProduct['qte_gros'] = new_qte_gros
 
                         if productExist:
-                            if newProduct['prix_detail'] and newProduct['prix_detail'] > 0:
-                                productExist.prix_detail = newProduct['prix_detail'] 
-                            if newProduct['prix_gros'] and newProduct['prix_gros'] > 0:
-                                productExist.prix_gros = newProduct['prix_gros']
-                            if newProduct['prix_unit'] and newProduct['prix_unit'] > 0:
+                            if int(newProduct['prix_detail']) and int(newProduct['prix_detail']) > 0:
+                                productExist.prix_detail = int(newProduct['prix_detail']) 
+                            if int(newProduct['prix_gros']) and int(newProduct['prix_gros']) > 0:
+                                productExist.prix_gros = int(newProduct['prix_gros'])
+                            if int(newProduct['prix_unit']) and int(newProduct['prix_unit']) > 0:
                                 productExist.prix_unit = newProduct['prix_unit'] 
 
                             productExist.qte_unit += newProduct['qte_unit']
@@ -104,27 +104,35 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                             productsToUpdate.append(productExist)
 
                             addStockInstance = AjoutStock(
-                                qte_uniter_transaction=newProduct['qte_unit'],
-                                qte_gros_transaction=new_qte_gros,
-                                type_transaction="Ajout",
+                                qte_unit_transaction=newProduct['qte_unit'],
+                                qte_gros_transaction=newProduct['qte_detail'],
+                                qte_detail_transaction=newProduct['qte_gros'],
+                                type_transaction="Maj",
+                                product=productExist,
                                 gestionnaire=user
                             )
+                            addStockListInstance.append(addStockInstance)
                         else:
                             productsToCreate.append(Product(**newProduct, detail=detailInstance, fournisseur=fournisseurInstance, marque=marqueInstance)) 
-
-                            addStockInstance = AjoutStock(
-                                qte_unit_transaction=newProduct['qte_unit'],
-                                qte_gros_transaction=newProduct['qte_gros'],
-                                type_transaction="Ajout",
-                                gestionnaire=user
-                            )
                         
-                        addStockListInstance.append(addStockInstance)
 
                 if len(productsToUpdate) > 0:
                     Product.objects.bulk_update(productsToUpdate, fields=['prix_detail', 'prix_gros', 'prix_unit', 'qte_unit', 'qte_gros'])
                 if len(productsToCreate) > 0:
-                    Product.objects.bulk_create(productsToCreate)
+                    for product in productsToCreate:
+                        product.save()
+
+                        addStockListInstance.append(
+                            AjoutStock(
+                                qte_unit_transaction=product.qte_unit,
+                                qte_gros_transaction=product.qte_gros,
+                                qte_detail_transaction=product.qte_detail,
+                                type_transaction="Ajout",
+                                product=product,  
+                                gestionnaire=user
+                            )
+                        )
+
 
                 AjoutStock.objects.bulk_create(addStockListInstance)
 
@@ -368,6 +376,9 @@ class ListVente(generics.ListAPIView):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer
 
+class ListTransactions(GestionnaireEditorMixin, generics.ListAPIView):
+    queryset = AjoutStock.objects.all()
+    serializer_class = AjoutStockSerialiser
 
 ##Mbola ts vita
 class CancelVente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
@@ -421,6 +432,7 @@ class ListFacture(generics.ListAPIView, userFactureQs):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
     # permission_classes = [IsAuthenticated, ]
+    
 class DeleteFacture(generics.DestroyAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
