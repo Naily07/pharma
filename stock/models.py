@@ -20,6 +20,26 @@ class Fournisseur(models.Model):
         self.contact = self.contact.replace(' ', '')
         super(Fournisseur, self).save(*args, **kwargs)
 
+
+     
+
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericRelation
+class Reglement(models.Model):
+    # Référence générique
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    cible = GenericForeignKey('content_type', 'object_id')  # Peut pointer vers une Facture ou une Trosa
+
+    date_paiement = models.DateTimeField(auto_now_add=True)
+    montant = models.DecimalField(max_digits=10, decimal_places=0)
+    moyen_paiement = models.CharField(max_length=50, blank=True, default="Espèces")
+    # note = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Règlement de {self.montant} pour {self.cible}"
+
 class Trosa(models.Model):
     owner = models.CharField(max_length=25)
     date = models.DateField(auto_now_add = True)
@@ -27,6 +47,8 @@ class Trosa(models.Model):
     contact = models.CharField(max_length=20, blank=True)
     montant = models.DecimalField(max_digits=10, decimal_places=0)
     montant_restant = models.DecimalField(max_digits=10, decimal_places=0)
+    reglements = GenericRelation(Reglement)
+
     
 class Facture(models.Model):
     date = models.DateTimeField(auto_now_add=True, null = True)
@@ -34,6 +56,7 @@ class Facture(models.Model):
     prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
     client = models.CharField(max_length=20, default="", blank=True)
     owner = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
+    reglements = GenericRelation(Reglement)
 
     def __str__(self) -> str:
         return str(self.id)
@@ -44,20 +67,6 @@ class Facture(models.Model):
         date =  localtime(self.date, timezone) # localtime change the timezone ou la fuseau horaire avec pytz
         formated = date.strftime("%d/%m/%Y, %H:%M") # Formate la date en string et format
         return formated
-     
-class Transaction(models.Model):
-    qte_detail_transaction = models.IntegerField(default=0, null=True)
-    qte_gros_transaction = models.IntegerField(default=0, null=True)
-    qte_unit_transaction = models.IntegerField(default=0, null = True)
-    type_transaction = models.TextField(max_length=25)
-    prix_total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
-    date = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self) -> str:
-        return self.type_transaction
-
-    class Meta():
-        abstract = True
 
 class Marque(models.Model):
     nom = models.CharField(max_length=50)
@@ -101,13 +110,26 @@ class Product(models.Model):
     def __str__(self) -> str:
         return f"{self.detail.designation} + {self.qte_detail}"
 
+class Transaction(models.Model):
+    qte_detail_transaction = models.IntegerField(default=0, null=True)
+    qte_gros_transaction = models.IntegerField(default=0, null=True)
+    qte_unit_transaction = models.IntegerField(default=0, null = True)
+    type_transaction = models.TextField(max_length=25)
+    prix_total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    date = models.DateTimeField(auto_now_add=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="%(class)s_related")
+
+    def __str__(self) -> str:
+        return self.type_transaction
+
+    class Meta():
+        abstract = True
+        
 class AjoutStock(Transaction):
     # Vue que ray iany gestionnares ts mila nasina ForegnKey AjoutStock
-    product = models.ForeignKey(Product, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
     gestionnaire = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
 
 
 class VenteProduct(Transaction):
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="%(class)s_related")
     

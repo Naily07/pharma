@@ -15,8 +15,8 @@ from api.permissions import IsGestionnaire
 from rest_framework.permissions import IsAuthenticated
 from api.mixins import userFactureQs
 from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
 # Create your views here.
-
 class CreateDetail(generics.ListCreateAPIView): 
     queryset = Detail.objects.all()
     serializer_class = DetailSerialiser
@@ -380,47 +380,61 @@ class ListTransactions(GestionnaireEditorMixin, generics.ListAPIView):
     queryset = AjoutStock.objects.all()
     serializer_class = AjoutStockSerialiser
 
+class RetrieveTransactions(GestionnaireEditorMixin, generics.RetrieveAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerialiser
+    lookup_field = 'pk'
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        ajout = instance.ajoutstock_related.all()
+        serializer = self.get_serializer(instance)
+        ajoutsersialiser = AjoutStockSerialiser(ajout, many = True).data
+        return Response(ajoutsersialiser)
+
 ##Mbola ts vita
-class CancelVente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
-    queryset = VenteProduct.objects.all()
-    serializer_class = VenteProductSerializer
+class CancelFacture(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
+    queryset = Facture.objects.all()
+    serializer_class = FactureSerialiser
     lookup_field = 'pk'
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         print("Object to delete", instance)
+        listVente = instance.venteproduct_related.all()
         with transaction.atomic():
             try:
-                data = request.data
-                print("Our Data", data)
-                id_product = data['product_id']
-                product = Product.objects.get(id = id_product)
-                qte_gros_cancel = data['qte_gros_transaction']
-                qte_unit_cancel = data['qte_unit_transaction']
-                qte_detail_cancel = data['qte_detail_transaction']
-                max_detail = product.detail.qte_max
-                max_unit = product.detail.qte_max_unit
-                
-                restUnit = 0
-                dividandDetail = 0
-                dividandUnit = 0
-                new_qte_unit = product.qte_unit + qte_unit_cancel
-                if new_qte_unit > max_unit:
-                    dividandUnit = int(new_qte_unit) // int(max_unit)
-                    restUnit = int(qteUnitVente) % int(maxUnit)
-                    new_qte_unit = restUnit
-                    qte_detail_cancel += dividandUnit
+                for vente in listVente:
+                    product = Product.objects.get(id = vente.product.id)
 
-                new_qte_detail = product.qte_detail + qte_detail_cancel
-                if new_qte_detail > max_detail and new_qte_detail != 0:
-                        dividandDetail = int(new_qte_detail) // int(max_detail)
-                        restDetail = int(new_qte_detail) % int(max_detail)
-                        new_qte_detail = restDetail
-                        qte_gros_cancel += dividandDetail
-                product.qte_unit = new_qte_unit
-                product.qte_detail = new_qte_detail
-                product.qte_gros += qte_gros_cancel
-                product.save()
+                    qte_gros_cancel = vente.qte_gros_transaction
+                    qte_unit_cancel = vente.qte_unit_transaction
+                    qte_detail_cancel = vente.qte_detail_transaction
+                    max_detail = product.detail.qte_max
+                    max_unit = product.detail.qte_max_unit
+                    
+                    restUnit = 0
+                    dividandDetail = 0
+                    dividandUnit = 0
+                    new_qte_unit = product.qte_unit + qte_unit_cancel
+                    if new_qte_unit > max_unit:
+                        dividandUnit = int(new_qte_unit) // int(max_unit)
+                        restUnit = int(qteUnitVente) % int(maxUnit)
+                        new_qte_unit = restUnit
+                        qte_detail_cancel += dividandUnit
+
+                    new_qte_detail = product.qte_detail + qte_detail_cancel
+                    if new_qte_detail > max_detail and new_qte_detail != 0:
+                            dividandDetail = int(new_qte_detail) // int(max_detail)
+                            restDetail = int(new_qte_detail) % int(max_detail)
+                            new_qte_detail = restDetail
+                            qte_gros_cancel += dividandDetail
+                    product.qte_unit = new_qte_unit
+                    product.qte_detail = new_qte_detail
+                    product.qte_gros += qte_gros_cancel
+                    product.save()
+                    
+                
                 self.perform_destroy(instance)
                 return Response(status=status.HTTP_200_OK, data=ProductSerialiser(product).data)
             except Product.DoesNotExist:
@@ -442,12 +456,41 @@ class UpdateFacture(generics.RetrieveUpdateAPIView):
     serializer_class = FactureSerialiser
     lookup_field = 'pk'
     
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
-    
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-    
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        old_prix_restant = instance.prix_restant
+
+        with transaction.atomic():  # Tout est dans une transaction
+            # Valider les données avant de les appliquer
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+
+            # Appliquer la mise à jour
+            self.perform_update(serializer)
+
+            # Recharger les données mises à jour
+            instance.refresh_from_db()
+            new_prix_restant = instance.prix_restant
+            print("Facture", new_prix_restant)
+            new_prix_restant = instance.prix_restant
+            montant_regle = old_prix_restant - new_prix_restant
+            print("montant regele", montant_regle)
+            if montant_regle > 0:
+                # Création du règlement (rollback automatique si erreur ici)
+                Reglement.objects.create(
+                    content_type=ContentType.objects.get_for_model(instance),
+                    object_id=instance.id,
+                    montant=montant_regle
+                )
+
+        queryset = self.filter_queryset(self.get_queryset())
+        if queryset._prefetch_related_lookups:
+            instance._prefetched_objects_cache = {}
+            prefetch_related_objects([instance], *queryset._prefetch_related_lookups)
+
+        return Response(serializer.data)
+       
 # /*** TROSA  ****/
 class CreateTrosa(generics.CreateAPIView):
     queryset = Trosa.objects.all()
@@ -464,6 +507,41 @@ class DeleteTrosa(generics.RetrieveDestroyAPIView):
 class UpdateTrosa(generics.RetrieveUpdateAPIView):
     queryset = Trosa.objects.all()
     serializer_class = TrosaSerialiser
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        old_prix_restant = instance.montant_restant
+
+        with transaction.atomic():  # Tout est dans une transaction
+            # Valider les données avant de les appliquer
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+
+            # Appliquer la mise à jour
+            self.perform_update(serializer)
+
+            # Recharger les données mises à jour
+            instance.refresh_from_db()
+            new_prix_restant = instance.montant_restant
+            print("Trosa", new_prix_restant)
+            new_prix_restant = instance.montant_restant
+            montant_regle = old_prix_restant - new_prix_restant
+            print("montant regele", montant_regle)
+            if montant_regle > 0:
+                # Création du règlement (rollback automatique si erreur ici)
+                Reglement.objects.create(
+                    content_type=ContentType.objects.get_for_model(instance),
+                    object_id=instance.id,
+                    montant=montant_regle
+                )
+
+        queryset = self.filter_queryset(self.get_queryset())
+        if queryset._prefetch_related_lookups:
+            instance._prefetched_objects_cache = {}
+            prefetch_related_objects([instance], *queryset._prefetch_related_lookups)
+
+        return Response(serializer.data)
  
 class ListFournisseur(generics.ListAPIView):
     queryset = Fournisseur.objects.all()

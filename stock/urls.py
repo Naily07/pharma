@@ -18,8 +18,9 @@ urlpatterns = [
     path('sell-product', SellBulkProduct.as_view(), name='vente-produit'),
     path('sell-one-product', SellProduct.as_view(), name='vente-produit'),
     path('sell-transactions', ListVente.as_view(), name='vente'),
-    path('transactions', ListTransactions.as_view(), name='vente'),
-    path('cancel-transaction/<int:pk>', CancelVente.as_view(), name='vente'),
+    path('transactions', ListTransactions.as_view(), name='Ajout-MAJ'),
+    path('transactions/<int:pk>', RetrieveTransactions.as_view(), name='Ajout-MAJ'),
+    path('cancel-facture/<int:pk>', CancelFacture.as_view(), name='vente'),
     #Trosa
     path('list-trosa/', ListTrosa.as_view(), name='vente-produit'),
     path('create-trosa', CreateTrosa.as_view(), name='vente-produit'),
