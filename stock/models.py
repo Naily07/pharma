@@ -97,7 +97,6 @@ class Product(models.Model):
     qte_unit = models.IntegerField(default=0, null=True, blank=True)
     date_peremption = models.DateField()
     date_ajout = models.DateTimeField(auto_now_add=True) 
-    # ajout_stock = models.ForeignKey(AjoutStock, on_delete=models.SET_NULL, null=True, related_name="%(class)s_related")
     detail = models.ForeignKey(Detail, on_delete=models.CASCADE, default=None, related_name="%(class)s_related")
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.CASCADE, related_name="%(class)s_related")
     marque = models.ForeignKey(Marque, on_delete=models.CASCADE, related_name="%(class)s_related") 
@@ -127,6 +126,9 @@ class Transaction(models.Model):
         
 class AjoutStock(Transaction):
     # Vue que ray iany gestionnares ts mila nasina ForegnKey AjoutStock
+    prix_detail = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    prix_gros = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    prix_unit = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     gestionnaire = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
 
 

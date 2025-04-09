@@ -116,6 +116,9 @@ class ProductSerialiser(serializers.ModelSerializer):
 class AjoutStockSerialiser(serializers.ModelSerializer):
     qte_gros_transaction = serializers.IntegerField()
     type_transaction = serializers.CharField(max_length=25)
+    prix_gros = serializers.DecimalField(max_digits=10, decimal_places=0)
+    prix_unit = serializers.DecimalField(max_digits=10, decimal_places=0)
+    prix_detail = serializers.DecimalField(max_digits=10, decimal_places=0)
     prix_total = serializers.DecimalField(max_digits=10, decimal_places=0)
     date = serializers.DateTimeField(read_only = True)
 
@@ -199,7 +202,7 @@ class FactureSerialiser(serializers.ModelSerializer):
     
 class TrosaSerialiser(serializers.ModelSerializer):
     owner = serializers.CharField(required = True)
-    date = serializers.DateField()
+    date = serializers.DateField(read_only = True)
     montant = serializers.DecimalField(max_digits=10, decimal_places=0, read_only = True)
     montant_restant = serializers.DecimalField(max_digits=10, decimal_places=0)
     contact = serializers.CharField(allow_blank = True)
@@ -208,7 +211,7 @@ class TrosaSerialiser(serializers.ModelSerializer):
 
     class Meta:
         model = Trosa
-        fields = ["pk", 'owner', 'date', 'montant', 'montant_restant', 'adress', 'contact']
+        fields = ["pk", 'owner', 'date', 'montant', 'montant_restant', 'adress', 'contact', "reglements"]
     
     def create(self, validated_data):
         trosa = Trosa.objects.create(montant = validated_data.get('montant_restant'), **validated_data)

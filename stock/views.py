@@ -108,6 +108,12 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                                 qte_gros_transaction=newProduct['qte_detail'],
                                 qte_detail_transaction=newProduct['qte_gros'],
                                 type_transaction="Maj",
+                                prix_gros = productExist.prix_gros,
+                                prix_unit = productExist.prix_unit,
+                                prix_detail = productExist.prix_detail,
+                                prix_total = (int(productExist.prix_detail) * int( newProduct['qte_detail']) 
+                                              + int(productExist.prix_unit) * int( newProduct['qte_unit'])
+                                              + int(productExist.prix_gros) * int( newProduct['qte_gros'])),
                                 product=productExist,
                                 gestionnaire=user
                             )
@@ -128,6 +134,12 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                                 qte_gros_transaction=product.qte_gros,
                                 qte_detail_transaction=product.qte_detail,
                                 type_transaction="Ajout",
+                                prix_gros = product.prix_gros,
+                                prix_unit = product.prix_unit,
+                                prix_detail = product.prix_detail,
+                                prix_total = (int(product.prix_detail) * int(product.qte_detail) 
+                                              + int(product.prix_unit) * int(product.qte_unit) 
+                                              + int(product.prix_gros) * int(product.qte_gros)), 
                                 product=product,  
                                 gestionnaire=user
                             )
@@ -148,29 +160,45 @@ class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
 
     def patch(self, request, *args, **kwargs):
         datas = request.data
-        print(datas['pk'])
-        qte_detail = int(datas['qte_detail'])
-        qte_gros = int(datas['qte_gros'])
-        print("Gors", qte_gros)
-        product = Product.objects.get(pk = datas['pk'])
-        if int(qte_detail)<0 or int(qte_gros)<0:
-            return Response({"message" : "Les valeurs ne peuvent pas être negatif"}, status=status.HTTP_400_BAD_REQUEST)
-        if int(qte_detail)>0 or int(qte_gros)>0:
-            qte_gros += product.qte_gros
-            qte_detail += product.qte_detail
-            detailInstance = product.detail
-            print("Designation", detailInstance.designation)
+        user = request.user
 
-            while int(qte_detail) > detailInstance.qte_max: 
-                        qte_gros += 1
-                        qte_detail -= detailInstance.qte_max
-            request.data['qte_detail'] = qte_detail
-            request.data['qte_gros'] = qte_gros
-        else :
-            request.data.pop("qte_gros")
-            request.data.pop("qte_detail")
-            print(request.data)
+        with transaction.atomic():
+            
+            qte_detail = int(datas['qte_detail'])
+            qte_gros = int(datas['qte_gros'])
+            product = Product.objects.get(pk = datas['pk'])
 
+            AjoutStock.objects.create(
+                qte_gros_transaction=qte_detail,
+                qte_detail_transaction=qte_gros,
+                type_transaction="Maj",
+                prix_gros = product.prix_gros,
+                prix_unit = product.prix_unit,
+                prix_detail = product.prix_detail,
+                prix_total = (int(product.prix_detail) * int( qte_detail)
+                                + int(product.prix_gros) * int( qte_gros)),
+                product=product,
+                gestionnaire=user   
+            )
+
+            if int(qte_detail)<0 or int(qte_gros)<0:
+                return Response({"message" : "Les valeurs ne peuvent pas être negatif"}, status=status.HTTP_400_BAD_REQUEST)
+            if int(qte_detail)>0 or int(qte_gros)>0:
+                qte_gros += product.qte_gros
+                qte_detail += product.qte_detail
+                detailInstance = product.detail
+                print("Designation", detailInstance.designation)
+
+                while int(qte_detail) > detailInstance.qte_max: 
+                            qte_gros += 1
+                            qte_detail -= detailInstance.qte_max
+                request.data['qte_detail'] = qte_detail
+                request.data['qte_gros'] = qte_gros
+            else :
+                request.data.pop("qte_gros")
+                request.data.pop("qte_detail")
+                print(request.data)
+            
         return super().patch(request, *args, **kwargs)
     
 class DeleteProduct(generics.DestroyAPIView, generics.ListAPIView, GestionnaireEditorMixin):
