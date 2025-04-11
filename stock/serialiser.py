@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from psycopg2.errors import UniqueViolation
 from account.serialisers import CustomUserSerialiser
+from django.db import transaction
+
 
 class FournisseurSerialiser(serializers.ModelSerializer):
     nom = serializers.CharField(max_length=20, required = True)
@@ -79,32 +81,51 @@ class ProductSerialiser(serializers.ModelSerializer):
     
     def create(self, validated_data):
         try:
-            print(validated_data)
-            detail_data = validated_data.pop("detail")
-            marque = validated_data.pop('marque')
-            fournisseur = validated_data.pop('fournisseur')
-            print(validated_data)
-            instance, createdD = Detail.objects.get_or_create(
-                designation=detail_data['designation'], 
-                famille=detail_data['famille'], 
-                classe=detail_data['classe'], 
-                type_uniter=detail_data['type_uniter'], 
-                type_gros=detail_data['type_gros'],
-                qte_max = detail_data['qte_max'],
-                qte_max_unit = detail_data['qte_max_unit']
-            )
-            marqueInstance, createdM = Marque.objects.get_or_create(nom = marque)
-            fournisseurInstance, createdF = Fournisseur.objects.get_or_create(
-                nom = str(fournisseur['nom']).upper(),
-                defaults={
-                    'adress': fournisseur['adress'],
-                    'contact': fournisseur['contact']
-                }
-            )
-            print("isCreated Fourniseeur", createdF)
-            print(instance)
-        
-            return Product.objects.create(detail = instance, marque = marqueInstance, fournisseur = fournisseurInstance, **validated_data)
+            with transaction.atomic():
+                print(validated_data)
+                request = self.context['request']
+                detail_data = validated_data.pop("detail")
+                marque = validated_data.pop('marque')
+                fournisseur = validated_data.pop('fournisseur')
+                print(validated_data)
+                instance, createdD = Detail.objects.get_or_create(
+                    designation=detail_data['designation'], 
+                    famille=detail_data['famille'], 
+                    classe=detail_data['classe'], 
+                    type_uniter=detail_data['type_uniter'], 
+                    type_gros=detail_data['type_gros'],
+                    qte_max = detail_data['qte_max'],
+                    qte_max_unit = detail_data['qte_max_unit']
+                )
+                marqueInstance, createdM = Marque.objects.get_or_create(nom = marque)
+                fournisseurInstance, createdF = Fournisseur.objects.get_or_create(
+                    nom = str(fournisseur['nom']).upper(),
+                    defaults={
+                        'adress': fournisseur['adress'],
+                        'contact': fournisseur['contact']
+                    }
+                )
+                print("isCreated Fourniseeur", createdF)
+                print(instance)
+                product = Product.objects.create(detail = instance, marque = marqueInstance, fournisseur = fournisseurInstance, **validated_data)
+                user = request.user
+                print("utilisateur", user)
+                AjoutStock.objects.create(
+                    qte_unit_transaction=product.qte_unit,
+                    qte_gros_transaction=product.qte_gros,
+                    qte_detail_transaction=product.qte_detail,
+                    type_transaction="Ajout",
+                    prix_gros = product.prix_gros,
+                    prix_unit = product.prix_unit,
+                    prix_detail = product.prix_detail,
+                    prix_total = (int(product.prix_detail) * int(product.qte_detail) 
+                                    + int(product.prix_unit) * int(product.qte_unit) 
+                                    + int(product.prix_gros) * int(product.qte_gros)), 
+                    product=product,  
+                    gestionnaire=user
+                )
+                
+                return product
         except UniqueViolation as e:
             raise serializers.ValidationError({"message": "Un produit avec cette combinaison de fournisseur, marque et détail existe déjà."})
         except IntegrityError as e:
