@@ -139,6 +139,10 @@ class UpdatePassword(APIView):
             return redirect(f"{redirect_url}?message=Email mis à jour")
         except Exception as e:
             raise e
+
+class ListAccount(generics.ListAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerialiser
 class CreateListAccount(generics.ListCreateAPIView, PropriosEditorMixin, ProprioQueryset):
     queryset = CustomUser.objects.all()
     serializer_class = CustomUserSerialiser
