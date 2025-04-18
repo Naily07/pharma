@@ -5,6 +5,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class CustomUserSerialiser(serializers.ModelSerializer):
     username = serializers.CharField(max_length = 25)
+    first_name = serializers.CharField(max_length = 25)
     password = serializers.CharField(write_only = True)
     email = serializers.EmailField()
     account_type = serializers.ChoiceField(
@@ -19,7 +20,7 @@ class CustomUserSerialiser(serializers.ModelSerializer):
 
     class Meta():
         model = CustomUser
-        fields = ['username', 'password',  "email", 'account_type']
+        fields = ['first_name', 'username', 'password',  "email", 'account_type']
     
     def create(self, validated_data):
         email = ''
@@ -30,6 +31,7 @@ class CustomUserSerialiser(serializers.ModelSerializer):
         password = validated_data['password']
         user.account_type = validated_data['account_type']
         user.username = validated_data['username']
+        user.first_name = validated_data['first_name']
         user.is_active = True
         user.set_password(password)
         user.save()

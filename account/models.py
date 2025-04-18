@@ -31,6 +31,7 @@ class CustomUserManager(UserManager):
 
 from django.utils import timezone 
 class CustomUser(AbstractUser, PermissionsMixin):
+    # first_name = models.CharField(max_length=150, blank=True)
     email = models.EmailField(null=True, default=None, unique=True)
     is_active = models.BooleanField(default = False)
     is_staff = models.BooleanField(default = False)

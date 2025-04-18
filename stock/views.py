@@ -174,8 +174,8 @@ class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
 
             AjoutStock.objects.create(
                 qte_unit_transaction=qte_unit,
-                qte_gros_transaction=qte_detail,
-                qte_detail_transaction=qte_gros,
+                qte_gros_transaction=qte_gros,
+                qte_detail_transaction=qte_detail,
                 type_transaction="Maj",
                 prix_gros = prix_gros,
                 prix_unit = prix_unit,
