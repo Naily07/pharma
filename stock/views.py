@@ -104,9 +104,9 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                             productsToUpdate.append(productExist)
 
                             addStockInstance = AjoutStock(
-                                qte_unit_transaction=newProduct['qte_unit'],
-                                qte_gros_transaction=newProduct['qte_detail'],
-                                qte_detail_transaction=newProduct['qte_gros'],
+                                qte_unit_transaction = newProduct['qte_unit'],
+                                qte_gros_transaction = newProduct['qte_gros'],
+                                qte_detail_transaction = newProduct['qte_detail'],
                                 type_transaction="Maj",
                                 prix_gros = productExist.prix_gros,
                                 prix_unit = productExist.prix_unit,
@@ -166,17 +166,22 @@ class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
             
             qte_detail = int(datas['qte_detail'])
             qte_gros = int(datas['qte_gros'])
+            qte_unit = int(datas['qte_unit'])
             product = Product.objects.get(pk = datas['pk'])
+            prix_gros = datas['prix_gros'] if datas['prix_gros'] else product.prix_gros
+            prix_detail = datas['prix_detail'] if datas['prix_detail'] else product.prix_detail
+            prix_unit = datas['prix_unit'] if datas['prix_unit'] else product.prix_unit
 
             AjoutStock.objects.create(
+                qte_unit_transaction=qte_unit,
                 qte_gros_transaction=qte_detail,
                 qte_detail_transaction=qte_gros,
                 type_transaction="Maj",
-                prix_gros = product.prix_gros,
-                prix_unit = product.prix_unit,
-                prix_detail = product.prix_detail,
-                prix_total = (int(product.prix_detail) * int( qte_detail)
-                                + int(product.prix_gros) * int( qte_gros)),
+                prix_gros = prix_gros,
+                prix_unit = prix_unit,
+                prix_detail = prix_detail,
+                prix_total = (int(prix_detail) * int( qte_detail)
+                                + int(prix_gros) * int( qte_gros)),
                 product=product,
                 gestionnaire=user   
             )
@@ -552,10 +557,10 @@ class UpdateTrosa(generics.RetrieveUpdateAPIView):
             # Recharger les données mises à jour
             instance.refresh_from_db()
             new_prix_restant = instance.montant_restant
-            print("Trosa", new_prix_restant)
+
             new_prix_restant = instance.montant_restant
             montant_regle = old_prix_restant - new_prix_restant
-            print("montant regele", montant_regle)
+
             if montant_regle > 0:
                 # Création du règlement (rollback automatique si erreur ici)
                 Reglement.objects.create(
