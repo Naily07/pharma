@@ -189,14 +189,15 @@ class UpdateProduct(GestionnaireEditorMixin, generics.RetrieveUpdateAPIView):
             if int(qte_detail)<0 or int(qte_gros)<0:
                 return Response({"message" : "Les valeurs ne peuvent pas être negatif"}, status=status.HTTP_400_BAD_REQUEST)
             if int(qte_detail)>0 or int(qte_gros)>0:
-                qte_gros += product.qte_gros
-                qte_detail += product.qte_detail
+                # qte_gros += product.qte_gros
+                # qte_detail += product.qte_detail
                 detailInstance = product.detail
                 print("Designation", detailInstance.designation)
-
+                print("GROS", qte_gros)
                 while int(qte_detail) > detailInstance.qte_max: 
                             qte_gros += 1
                             qte_detail -= detailInstance.qte_max
+                print("GRos After", qte_gros)
                 request.data['qte_detail'] = qte_detail
                 request.data['qte_gros'] = qte_gros
             else :
