@@ -156,13 +156,11 @@ class VenteProductSerializer(serializers.ModelSerializer):
         ('Ajout', 'Ajout'),
         ('Maj', 'Maj')
     ])
-    date = serializers.DateTimeField(read_only = True)
     product_id = serializers.IntegerField(min_value = 0, write_only = True)
     prix_total = serializers.DecimalField(max_digits=10, decimal_places=0)
     product = serializers.SerializerMethodField(read_only = True)
     marque = serializers.SerializerMethodField(read_only = True)
     # vendeur = serializers.SerializerMethodField(read_only = True)
-    facture = serializers.SerializerMethodField(read_only = True)
 
     class Meta():
         model = VenteProduct
@@ -179,10 +177,6 @@ class VenteProductSerializer(serializers.ModelSerializer):
         venteStock = obj
         produit : Product = venteStock.product
         return produit.marque.nom
-
-    def get_facture(self, obj):
-        f : Facture = obj.facture
-        return f.id 
     
 
 class ReglementSerializer(serializers.ModelSerializer):
@@ -220,6 +214,33 @@ class FactureSerialiser(serializers.ModelSerializer):
         facture = obj
         reglements = facture.reglements.all()
         return ReglementSerializer(reglements, many=True).data
+    
+class FilAttenteSerialiser(serializers.ModelSerializer):
+    produits = serializers.SerializerMethodField(read_only = True)
+    client = serializers.CharField()
+    date = serializers.SerializerMethodField(read_only = True)
+    owner = serializers.SerializerMethodField(read_only = True)
+    class Meta:
+        model = FilAttenteProduct
+        fields = "__all__"
+
+    def get_produits(self, obj):
+        fil = obj
+        ventes = fil.venteproduct_related.all()
+        print("VenteProduct", ventes)
+        for v in ventes:
+            print("ID Vente:", v.id)
+        
+        return VenteProductSerializer(ventes, many = True).data 
+    
+    def get_owner(self, obj):
+        owner = CustomUserSerialiser(obj.owner).data
+        print(owner)
+        return owner['username']
+    
+    def get_date(self, obj):
+        print("Formate", obj.formated_date)
+        return obj.formated_date  
     
 class TrosaSerialiser(serializers.ModelSerializer):
     owner = serializers.CharField(required = True)

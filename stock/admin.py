@@ -6,7 +6,7 @@ class ModelProduct(admin.ModelAdmin):
     list_display = ['pk', 'detail', 'qte_detail', 'qte_gros']
 
 class ModelVente(admin.ModelAdmin):
-    list_display = ['pk', 'facture', 'type_transaction']
+    list_display = ['pk', 'facture', 'fil_attente', 'type_transaction']
 
 class ModelFacture(admin.ModelAdmin):
     list_display = ['pk', 'prix_total', 'client']
@@ -23,3 +23,4 @@ admin.site.register(Fournisseur)
 admin.site.register(Facture, ModelFacture)
 admin.site.register(Trosa, ModelTrosa)
 admin.site.register(Reglement)
+admin.site.register(FilAttenteProduct)

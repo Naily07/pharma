@@ -406,6 +406,229 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
             return Response({"message": f"Erreur: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
+    queryset = VenteProduct.objects.all()
+    serializer_class = VenteProductSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        filtre = {"type_transaction" : "attente"}
+        return qs.filter(**filtre)
+
+    def post(self, request):
+        datas = request.data
+        client = ""
+        user = request.user
+        prixRestant = 0
+        datasCopy = datas.copy()
+        
+        for item in datasCopy:
+            for key, value in item.items():
+                if key == "client":
+                    client = value
+                    datas.remove(item)
+                if key == "prix_restant":
+                    prixRestant = value
+                    datas.remove(item)
+                    
+        venteList = datas
+        venteInstancList = []
+        
+        try:
+            with transaction.atomic():
+                filAttente = FilAttenteProduct(
+                    prix_total=0,
+                    prix_restant=0,
+                    owner=user
+                )
+                filAttente.save()
+                prix_unit = 0
+                prix_gros = 0
+                prix_detail = 0
+                
+                for vente in venteList:
+                    print("Vente", vente)
+                    product_id = vente['product_id']
+                    try:
+                        produit = Product.objects.get(id=product_id)
+                    except Product.DoesNotExist:
+                        return Response({"message": "Produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
+                    
+                    maxUnit = produit.detail.qte_max_unit
+                    maxDetail = produit.detail.qte_max
+                    
+                    qteUnitVente = vente['qte_unit_transaction']
+                    qteGrosVente = vente['qte_gros_transaction']
+                    qteDetailVente = vente['qte_detail_transaction']
+                    
+                    if qteGrosVente < 0 or qteUnitVente < 0 or qteDetailVente < 0:
+                        return Response({"message": "Erreur de quantité de vente"}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    qteGrosStock = produit.qte_gros
+                    qteUnitStock = produit.qte_unit
+                    qteDetailStock = produit.qte_detail
+                    restDetail = 0
+                    restUnit = 0
+                    dividandDetail = 0
+                    dividandUnit = 0
+                    #CONVERSION
+                    if qteUnitVente > 0 and maxUnit == 0 or qteDetailVente > 0 and maxDetail == 0:
+                       return Response({"message": "qte unit ou qte detail indisponible"}, status=status.HTTP_400_BAD_REQUEST)  
+                    if qteUnitVente >= maxUnit and qteUnitStock != 0:
+                        dividandUnit = int(qteUnitVente) // int(maxUnit)
+                        restUnit = int(qteUnitVente) % int(maxUnit)
+                        qteUnitVente = restUnit
+                        qteDetailVente += dividandUnit
+                    
+                    if qteDetailVente >= maxDetail and qteDetailVente != 0:
+                        dividandDetail = int(qteDetailVente) // int(maxDetail)
+                        restDetail = int(qteDetailVente) % int(maxDetail)
+                        qteDetailVente = restDetail
+                        qteGrosVente = dividandDetail
+                    
+                    #Condition
+                    if qteGrosStock >= qteGrosVente:
+                        if qteUnitStock < qteUnitVente and maxUnit != 0:
+                            if qteDetailStock > 0:
+                                qteUnitStock += maxUnit
+                                qteDetailStock -= 1
+                            elif qteGrosStock > 0:
+                                qteGrosStock -= 1
+                                qteDetailStock -= 1
+                                qteUnitStock += maxUnit
+                            else:
+                                return Response({"message": "Stock Detail insuffisant"}, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        if qteUnitStock > 0:
+                            qteUnitStock -= qteUnitVente
+
+                        ## CALCUL Detail
+                        if qteDetailStock >= qteDetailVente and maxDetail != 0:
+                            qteDetailStock -= qteDetailVente
+                        elif qteDetailVente > qteDetailStock or (qteDetailStock == 0 and qteDetailVente > 0):
+                            if qteGrosStock > 0:
+                                qteDetailStock += maxDetail
+                                qteGrosStock -= 1
+                                qteDetailStock -= qteDetailVente
+                            else:
+                                return Response({"message": "Stock insuffisant"}, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        if qteGrosStock < qteGrosVente:
+                            return Response({"message": "Stock insuffisant"}, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        qteGrosStock -= qteGrosVente
+                    else:
+                        return Response({"message": 'La quantité est invalide ou dépasse le stock'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    produit.qte_unit = qteUnitStock
+                    produit.qte_gros = qteGrosStock
+                    produit.qte_detail = qteDetailStock
+
+                    venteInstance = VenteProduct(
+                        product=produit,
+                        qte_unit_transaction=qteUnitVente,
+                        qte_gros_transaction=qteGrosVente,
+                        qte_detail_transaction=qteDetailVente,
+                        type_transaction="Attente",
+                        prix_total=(int(qteUnitVente * produit.prix_unit)
+                                     + int(qteDetailVente * produit.prix_detail)
+                                       + int(qteGrosVente * produit.prix_gros)),
+                        fil_attente=filAttente,
+                    )
+                    
+                    produit.save()
+                    prix_unit += qteUnitVente * produit.prix_unit
+                    prix_gros += qteGrosVente * produit.prix_gros
+                    prix_detail += qteDetailVente * produit.prix_detail
+                    
+                    venteInstancList.append(venteInstance)
+                
+                filAttente.prix_restant = prixRestant
+                filAttente.prix_total = prix_unit + prix_gros + prix_detail
+                filAttente.client = client
+                filAttente.save()
+
+                print("VenteList", venteInstancList)
+                
+                if len(venteInstancList) > 0:
+                    print("ATO", filAttente.id)
+                    VenteProduct.objects.bulk_create(venteInstancList)
+                    # filDatas = FilAttenteProduct.objects.filter(id__iexact = filAttente.id).first()
+                    filAttentesSerialiser = FilAttenteSerialiser(filAttente).data
+                    # print("Return", filAttentesSerialiser)
+                    
+                    return Response(filAttentesSerialiser, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({'message': "Erreur de création"}, status=status.HTTP_400_BAD_REQUEST)
+                
+        except AttributeError as e:
+            return Response({"message": f"Erreur d'attribut{e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({"message": f"Erreur: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ValidateFilAttente(VendeurEditorMixin, generics.ListCreateAPIView):
+    queryset = VenteProduct.objects.all()
+    serializer_class = VenteProductSerializer
+
+    def create(self, request, *args, **kwargs):
+        try:
+            filId = request.data.get("id")
+            venteList = FilAttenteProduct.finaliser(self,id=filId)
+            print("Les ventes", venteList)
+            return Response(data=VenteProductSerializer(venteList, many = True).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"message" : f"Erreur {e}"})
+
+class CancelFilAttente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
+    queryset = FilAttenteProduct.objects.all()
+    serializer_class = FilAttenteSerialiser
+    lookup_field = 'pk'
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        print("Object to delete", instance)
+        listVente = instance.venteproduct_related.all()
+        with transaction.atomic():
+            try:
+                for vente in listVente:
+                    product = Product.objects.get(id = vente.product.id)
+
+                    qte_gros_cancel = vente.qte_gros_transaction
+                    qte_unit_cancel = vente.qte_unit_transaction
+                    qte_detail_cancel = vente.qte_detail_transaction
+                    max_detail = product.detail.qte_max
+                    max_unit = product.detail.qte_max_unit
+                    
+                    restUnit = 0
+                    dividandDetail = 0
+                    dividandUnit = 0
+                    new_qte_unit = product.qte_unit + qte_unit_cancel
+                    if new_qte_unit > max_unit:
+                        dividandUnit = int(new_qte_unit) // int(max_unit)
+                        restUnit = int(qteUnitVente) % int(maxUnit)
+                        new_qte_unit = restUnit
+                        qte_detail_cancel += dividandUnit
+
+                    new_qte_detail = product.qte_detail + qte_detail_cancel
+                    if new_qte_detail > max_detail and new_qte_detail != 0:
+                            dividandDetail = int(new_qte_detail) // int(max_detail)
+                            restDetail = int(new_qte_detail) % int(max_detail)
+                            new_qte_detail = restDetail
+                            qte_gros_cancel += dividandDetail
+                    product.qte_unit = new_qte_unit
+                    product.qte_detail = new_qte_detail
+                    product.qte_gros += qte_gros_cancel
+                    product.save()
+                    
+                
+                self.perform_destroy(instance)
+                return Response(status=status.HTTP_200_OK, data=ProductSerialiser(product).data)
+            except Product.DoesNotExist:
+                return Response({"message": "Produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                return Response({"message": f"Erreur Serveur {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+      
 class ListVente(generics.ListAPIView):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer

@@ -2,7 +2,7 @@ from typing import Iterable
 from django.db import models
 from django.utils.timezone import localtime
 import pytz
-
+from django.db import transaction
 from account.models import CustomUser
 # Create your models here.
 
@@ -19,9 +19,7 @@ class Fournisseur(models.Model):
         self.nom = self.nom.upper()
         self.contact = self.contact.replace(' ', '')
         super(Fournisseur, self).save(*args, **kwargs)
-
-
-     
+         
 
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -49,7 +47,6 @@ class Trosa(models.Model):
     montant_restant = models.DecimalField(max_digits=10, decimal_places=0)
     reglements = GenericRelation(Reglement)
 
-    
 class Facture(models.Model):
     date = models.DateTimeField(auto_now_add=True, null = True)
     prix_total = models.DecimalField(max_digits=10, decimal_places=0)
@@ -90,8 +87,11 @@ class Detail(models.Model):
 from django.db.models.constraints import UniqueConstraint
 class Product(models.Model):
     prix_gros = models.DecimalField(max_digits=10, decimal_places=0)
+    prix_gros_init = models.DecimalField(max_digits=10, decimal_places=0, default=0, blank = True)
     prix_detail = models.DecimalField(default = 0, max_digits=10, decimal_places=0, null=True)
+    prix_detail_init = models.DecimalField(default = 0, max_digits=10, decimal_places=0, null=True, default=0, blank = True)
     prix_unit = models.DecimalField(default = 0, max_digits=10, decimal_places=0, null=True)
+    prix_unit_init = models.DecimalField(default = 0, max_digits=10, decimal_places=0, null=True, default=0, blank = True)
     qte_detail = models.IntegerField(default=0, null=True)
     qte_gros = models.IntegerField(default=0, null=True)
     qte_unit = models.IntegerField(default=0, null=True, blank=True)
@@ -131,7 +131,46 @@ class AjoutStock(Transaction):
     prix_unit = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     gestionnaire = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
 
+class FilAttenteProduct(models.Model):
+    date = models.DateTimeField(auto_now_add=True, null = True)
+    prix_total = models.DecimalField(max_digits=10, decimal_places=0)
+    prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
+    client = models.CharField(max_length=20, default="", blank=True)
+    owner = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
+
+    def __str__(self) -> str:
+        return str(self.id)
+    
+    @property
+    def formated_date(self):
+        timezone = pytz.timezone('Etc/GMT-3')
+        date =  localtime(self.date, timezone) # localtime change the timezone ou la fuseau horaire avec pytz
+        formated = date.strftime("%d/%m/%Y, %H:%M") # Formate la date en string et format
+        return formated
+    
+    @transaction.atomic
+    def finaliser(self, id):
+        if(id):
+            filAttente = FilAttenteProduct.objects.get(id=id)
+            allVenteProduct = filAttente.venteproduct_related.all()
+            facture = Facture(
+                prix_total = filAttente.prix_total,
+                prix_restant = filAttente.prix_restant,
+                client = filAttente.client,
+                owner = filAttente.owner
+            )
+            facture.save()
+            for vente in allVenteProduct:
+                vente.fil_attente = None
+                vente.facture = facture
+                vente.type_transaction = "vente"
+                vente.save()
+            filAttente.delete()
+            return allVenteProduct
+        else:
+            raise ValueError("Fil d'attente inexistant")
 
 class VenteProduct(Transaction):
-    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related")
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related", null=True)
+    fil_attente = models.ForeignKey(FilAttenteProduct, on_delete=models.SET_NULL, related_name="%(class)s_related", null=True)
     

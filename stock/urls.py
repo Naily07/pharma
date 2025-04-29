@@ -16,6 +16,10 @@ urlpatterns = [
     path('cancel-facture/<int:pk>', CancelFacture.as_view(), name='vente'),
 
     #Vendeur
+    path('create-fil-attente', CreateFilAttenteProduct.as_view(), name='fil-attente-product'),
+    path('validate-fil-attente', ValidateFilAttente.as_view(), name='fil-attente-product'),
+    path('cancel-fil-attente/<int:pk>', CancelFilAttente.as_view(), name='vente'),
+
     path('sell-product', SellBulkProduct.as_view(), name='vente-produit'),
     path('sell-one-product', SellProduct.as_view(), name='vente-produit'),
     path('sell-transactions', ListVente.as_view(), name='vente'),
